@@ -1,0 +1,3257 @@
+
+perm filename CSREAS.1[MRS,LSP] blob sn#694863 filedate 1983-01-03 generic text, type T, neo UTF8
+
+;	Utility Functions and Macros from NWREP.TXT[AT,LGC]/4p
+
+(DECLARE (fasload struct fas dsk (mac lsp))
+;(declare (fasload struct ofa dsk (mac lsp)))
+	 (mapex 't)
+	 (setq defmacro-for-compiling nil)
+
+	 (special *ALL-BEL-LEVELS*  *ALL-R-RULE-EXPERTS-LIST*
+		  *ALL-R-HEURISTIC-EXPERTS-LIST* R-AGENDA -CONTEXT-
+		  -CONTEXT:GLOBAL- -ALLWORLDS- -NATURE- -REALWORLD-
+		  *BL-NEG-INDEX* )
+
+	 (SETQ *WRITE-DO-LIST* '(SPACES DISPLAY POSPRINC GO TAB BREAK ERROR)
+	       IBASE 10. BASE 10. )
+
+	 (NCONC *WRITE-DO-LIST* '(DISPLAY-RPN-CONSIDS SETQ)) )
+
+(NCONC *WRITE-DO-LIST* '(DISPLAY-RPN-CONSIDS SETQ))
+
+(SETQ *ALL-BEL-LEVELS*
+      '(CERTAIN DOUBTLESS VERY-LIKELY FAIRLY-LIKELY SOMEWHAT-LIKELY
+		LIKELY-AS-NOT SOMEWHAT-UNLIKELY FAIRLY-UNLIKELY
+		VERY-UNLIKELY MOST-UNLIKELY NEG-CERTAIN )
+      *BL-NEG-INDEX*
+      (NCONC (MAPCAR #'CONS *ALL-BEL-LEVELS* (REVERSE *ALL-BEL-LEVELS*))
+	     '((INDETERMINATE . INDETERMINATE)) ) )
+
+(DECLARE	;; this declaration includes the rest of this page
+ (DEFMACRO SUBSET (LIST PREDICATE)
+   (SETQ PREDICATE (EVAL PREDICATE))
+   `(MAPCAN #'(LAMBDA (MEMBER)
+		(COND ((,PREDICATE MEMBER) (NCONS MEMBER))) )
+	    ,LIST ) )
+
+; Definition of SUBSET for LISP-Machine:
+;  (DEFMACRO SUBSET (LIST PREDICATE)
+;    `(REM-IF-NOT ,PREDICATE ,LIST) )
+
+(DEFMACRO CONSP (EXPR)
+   `(EQ (TYPEP ,EXPR) 'LIST) )
+
+; TCONC adds an item onto the end of a list that is maintained via the
+; cons-cell PTR.  The list itself is (CAR PTR), while (CDR PTR) is (LAST list),
+; the last cons of the list.  To start such a list, PTR should be initialized
+; to (NCONS NIL).  TCONC returns the updated PTR.  Thus, in order to
+; "pass through" the item added, one may write (CADR (TCONC ... )).
+(DEFUN TCONC (ADDITEM PTR)
+       (OR (CONSP PTR) (BREAK |TCONC - PTR not a CONS-cell!|))
+       (COND ((CDR PTR)
+	      (RPLACD PTR (CDR (RPLACD (CDR PTR) (NCONS ADDITEM)))) )
+	     (T (RPLACD PTR (CAR (RPLACA PTR (NCONS ADDITEM))))) ) )
+
+(DEFUN NSUBLIS (A-LIST S-EXPR &aux SUBSTPAIR)
+  (COND ((CONSP S-EXPR)
+	   (COND ((CONSP (CAR S-EXPR)) (NSUBLIS A-LIST (CAR S-EXPR)))
+		 ((SETQ SUBSTPAIR (ASSQ (CAR S-EXPR) A-LIST))
+		    (RPLACA S-EXPR (CDR SUBSTPAIR)) ) )
+	   (COND ((CONSP (CDR S-EXPR)) (NSUBLIS A-LIST (CDR S-EXPR)))
+		 ((SETQ SUBSTPAIR (ASSQ (CDR S-EXPR) A-LIST))
+		    (RPLACD S-EXPR (CDR SUBSTPAIR)) ) )
+	   S-EXPR )
+	((COND ((SETQ SUBSTPAIR (ASSQ S-EXPR A-LIST)) (CDR SUBSTPAIR))
+	       (S-EXPR) )) ) )
+
+(DEFMACRO SETF* (SETFORM VALUEFORM)
+  (LIST 'SETF SETFORM (NSUBLIS `((-*- . ,SETFORM)) VALUEFORM)) )
+
+(DEFMACRO SOME (LIST PREDICATE . &opt:STEP-FUNCTION)
+  (SETF* PREDICATE (EVAL -*-))
+  (COND (&opt:STEP-FUNCTION (SETF* &opt:STEP-FUNCTION (EVAL -*-))))
+  `(DO ((LISTAIL ,LIST (,(COND (&opt:STEP-FUNCTION
+				 (CAR &opt:STEP-FUNCTION) )
+			       (T 'CDR) )
+			  LISTAIL )))
+       ((NULL LISTAIL) NIL)
+       (COND ((,PREDICATE (CAR LISTAIL)) (RETURN LISTAIL))) ) )
+
+(DEFMACRO ALL (LIST PREDICATE . &opt:STEP-FUNCTION)
+  (SETF* PREDICATE (EVAL -*-))
+  (COND (&opt:STEP-FUNCTION (SETF* &opt:STEP-FUNCTION (EVAL -*-))))
+  `(DO ((LISTAIL ,LIST (,(COND (&opt:STEP-FUNCTION
+				 (CAR &opt:STEP-FUNCTION) )
+			       (T 'CDR) )
+			  LISTAIL )))
+       ((NULL LISTAIL) 'T)
+       (COND ((NOT (,PREDICATE (CAR LISTAIL))) (RETURN NIL))) ) )
+
+(DEFMACRO COPYLIST (LIST)
+  `(APPEND ,LIST NIL) )
+
+(DEFMACRO WRITE BODY
+  `(PROGN ,@(MAPCAR #'(LAMBDA (X)
+		        (COND ((EQ X 'T) '(TERPRI))
+			      ((ATOM X) `(PRINC ,X))
+			      ((CONSP X)
+			         (COND ((MEMQ (CAR X) *WRITE-DO-LIST*)
+					  X )
+				       ((EQ '1* (CAR X))
+					  `(PRIN1 ,(CDR X)) )
+				       ((EQ 'IF* (CAR X))
+					  `(LET ((VAL ,(CDR X)))
+						(COND (VAL (PRINC VAL))) ) )
+				       (T `(PRINC ,X)) ) ) ) )
+		    BODY ) ) )
+
+(DEFMACRO COPYLIST (LIST)
+  `(APPEND ,LIST NIL) )
+
+(DEFMACRO RASSQ (KEY A-LIST)
+   `(DO ((A-TAIL ,A-LIST (CDR A-TAIL)))
+	((NULL A-TAIL))
+	(COND ((EQ (CDAR A-TAIL) ,KEY) (RETURN (CAR A-TAIL)))) ) )
+
+(DEFMACRO GET-XPDN-COMMAND ()
+ '(PROGN (WRITE T PROMPT-STRING)
+	 (READ) ) )
+ )
+;		  New Reasoning Data Structures
+
+;		        (Inspired in part by consideration of RPG's REASON.8)
+;					     Original Version:    5 Nov  1982
+;						 Last Revised:    6 Dec  1982
+
+;  The proposed basic data structure for commonsense reasoning is a graph or
+; network with complex propositional nodes (REASONING-PROPOSITION-NODEs), and
+; complex labelled links (REASONING-CONSIDERATION-LINKs).  The entire reasoning
+; network is partitioned into two subsets, the TARGET-CORPUS, bounded on its
+; unanchored side by the TARGET-FRONTIER, and the KNOWLEDGE-CORPUS, bounded on
+; its unanchored side by the KNOWLEDGE-FRONTIER.  Reasoning is essentially a
+; knowledge-governed, bi-directional search for arguments both for and against
+; the TARGET-PROPOS.  The search proceeds forward from the KNOWLEDGE-BASIS and
+; backward from the TARGET-PROPOS, until the two frontiers meet and become
+; sufficiently connected.
+
+(DEFSTRUCT (REASONING-GRAPH (CONC-NAME R-GRAPH-))
+	   (RB-CONTEXT ())		;; the reasoning background-context
+	   (T-BASIS ())			;; the set of ultimate target-rp-nodes
+	   (T-FRONTIER ())		;; target frontier
+	   (T-DIRECTORY ())		;; target directory
+	   (K-BASIS ())	 ;; knowledge basis - relevant premises previously known
+	   (K-FRONTIER ())		;; knowledge frontier
+	   (K-DIRECTORY ())		;; knowledge directory
+	   (CONSID-LIST ()) )		;; a list of all considerations
+
+(DEFSTRUCT (RG-DIRECTORY-ENTRY (CONC-NAME RG-DIR-ENTRY-))
+	   P-UNIT CONTEXT RP-NODE )
+
+; This defstruct is used (but not defined) by senten.def[at,lgc]
+(DEFSTRUCT (BELIEF CONC-NAME)
+	   (WT-CNTXT -REALWORLD-)     ;; A world-time-context, which determines
+				      ;;  part of the content of the belief.
+	   (TYPE ())		;; knowledge, hypothesis, assumption, etc.
+	   (P-UNIT ())		;; A property-list with FORMULA and
+				;;  F-DESCRIPTS indicators.
+	   (EPISTATUS ()) )
+
+(DEFSTRUCT (QUERY CONC-NAME)  ;; a belief-like construct for target propositions
+	   (WT-CNTXT ())	;; A world-time-context, which determines
+				;;  part of the content of the query.
+	   (TYPE 'QUERY)
+	   (P-UNIT ())		;; a property-list with FORMULA and
+				;;  F-DESCRIPTS indicators.
+	   (EPISTATUS (MAKE-EPISTATUS BEL-LEVEL 'INDETERMINATE
+				      BEL-FIRMNESS () )) )
+					;; soon 'INDETERMINATE
+
+(declare (setq defmacro-for-compiling 't))
+
+(DEFMACRO BELIEF-FORMULA (BELIEF)
+  `(GET (BELIEF-P-UNIT ,BELIEF) 'FORMULA) )
+
+(DEFMACRO RP-NODE-FORMULA (RP-NODE)
+  `(BELIEF-FORMULA (RP-NODE-CONTENT ,RP-NODE)) )
+
+(DEFMACRO QUERY-FORMULA (QUERY)
+  `(GET (QUERY-P-UNIT ,QUERY) 'FORMULA) )
+
+(DEFMACRO BELIEF-DESCRIPTS (BELIEF)
+  `(GET (BELIEF-P-UNIT ,BELIEF) 'F-DESCRIPTS) )
+
+(DEFMACRO QUERY-DESCRIPTS (QUERY)
+  `(GET (QUERY-P-UNIT ,QUERY) 'F-DESCRIPTS) )
+
+(DEFMACRO BELIEF-BEL-LEVEL (BELIEF)
+  `(EPIST-BEL-LEVEL (BELIEF-EPISTATUS ,BELIEF)) )
+
+(DEFMACRO QUERY-BEL-LEVEL (QUERY)
+  `(EPIST-BEL-LEVEL (QUERY-EPISTATUS ,QUERY)) )
+
+(declare (setq defmacro-for-compiling ()))
+
+; This defstruct is used (but not defined) by senten.def[at,lgc]
+(DEFSTRUCT (EPISTATUS (CONC-NAME EPIST-))
+	   (BF-GROUNDS ())	   ;; descriptions of the reasoning and learning
+				   ;;  processes that underlie bel-firmness
+	   (BEL-LEVEL ())	   ;; level of belief or commitment
+	   (BL-GROUNDS ())	   ;; supporting considerations, etc.
+	   (BEL-FIRMNESS ()) )	   ;; firmness of belief or commitment
+
+(DEFMACRO COPY-EPISTATUS (X)
+ `(MAKE-EPISTATUS BF-GROUNDS (EPIST-BF-GROUNDS ,X)
+		  BEL-LEVEL (EPIST-BEL-LEVEL ,X)
+		  BL-GROUNDS (EPIST-BL-GROUNDS ,X)
+		  BEL-FIRMNESS (EPIST-BEL-FIRMNESS ,X) ) )
+
+(DEFMACRO CSR:COPY-P-UNIT (P-UNIT)
+ `(LET ((COPY (NCONS '*P-UNIT*)))
+       (SETPLIST COPY (COPYLIST (PLIST ,P-UNIT)))
+       COPY ) )
+
+(DEFMACRO CSR:COPY-BLF∨QRY (B∨Q-VAR)
+  `(MAKE-BELIEF WT-CNTXT (BELIEF-WT-CNTXT ,B∨Q-VAR)
+		TYPE (BELIEF-TYPE ,B∨Q-VAR)
+		P-UNIT (CSR:COPY-P-UNIT (BELIEF-P-UNIT ,B∨Q-VAR))
+		EPISTATUS (COPY-EPISTATUS (BELIEF-EPISTATUS ,B∨Q-VAR)) ) )
+
+;  This macro assumes a call of the sort:
+;  (csr:create-blf∨qry belief
+;		       formula '(canary tweety)
+;  		       f-descripts '((lt-type . atomicpropo))
+;			...  		;; more p-unit slots 'n' values
+;  		       bel-level 'doubtless
+;			...  		;; more belief slots 'n' values
+;  		       wt-cntxt -real-world- )
+;  , where a value for at least one of the slots FORMULA, F-DESCRIPTS
+;    must be specified.
+(DEFMACRO (CSR:CREATE-BLF∨QRY defmacro-for-compiling 't) (TYPE . IND-VAL-TAIL)
+  (LET ((MAKEFN (CASEQ TYPE (QUERY 'MAKE-QUERY) (T 'MAKE-BELIEF)))
+	(P-UNIT-IV-LIST (CONS 'LIST (APPEND IND-VAL-TAIL NIL)))
+	(EPIST-IV-LIST)
+	(BEL-CXT-VAL) )
+       (COND ((SETQ BEL-CXT-VAL (GET P-UNIT-IV-LIST 'WT-CNTXT))
+		(REMPROP P-UNIT-IV-LIST 'WT-CNTXT) ))
+       (DO ((TAIL (CDR P-UNIT-IV-LIST) (CDDR TAIL))
+	    (LAG-TAIL NIL (CDR TAIL)) )
+	   ((OR (NULL TAIL)
+		(MEMQ (CAR TAIL) '(BEL-LEVEL BEL-FIRMNESS BL-GROUNDS BF-GROUNDS)) )
+	      (COND (TAIL (SETQ EPIST-IV-LIST TAIL)
+			  (SETF (CDR LAG-TAIL) NIL) )) ) )
+       (DO ((IV-TAIL P-UNIT-IV-LIST (CDDR IV-TAIL)))
+	   ((NULL (CDR IV-TAIL)))
+	   (SETF (CDR IV-TAIL) (CONS `(QUOTE ,(CADR IV-TAIL)) (CDDR IV-TAIL))) )
+       `(LET ((P-UNIT (NCONS '*P-UNIT*)))
+	     (SETPLIST P-UNIT ,P-UNIT-IV-LIST)
+	     (,MAKEFN TYPE ',TYPE
+		      P-UNIT P-UNIT
+		      WT-CNTXT ,(COND (BEL-CXT-VAL) (T '-REALWORLD-))
+		      ,@(COND (EPIST-IV-LIST
+			       `(EPISTATUS (MAKE-EPISTATUS ,@EPIST-IV-LIST)) )
+			      (T NIL) ) ) ) ) )
+
+(DEFSTRUCT (REASONING-TASK (CONC-NAME R-TASK-))
+	   EFFORT PRIORITY DESCRIPTION R-EXPERT METHOD ARGUMENTS
+	   (TRIAL-REPORT 'UNTRIED) )
+
+(DEFSTRUCT (REASONING-PROPOSITION-NODE (CONC-NAME RP-NODE-))
+	   (R-GRAPH ())
+	   (TYPE ())		       ;; either 'TARGET or 'KNOWLEDGE
+	   (CONTENT ())		       ;; a belief (knowledge) or query (target)
+	   (RLVT-CONSIDS ())		;; ReLeVanT CONSIDerations
+	   (PART-CONSIDS ())		;; CONSIDerations PARTicipated in
+	   (NEGATION ())		;; the rp-node of the negation
+	   (TRAV-LIST ()) )		;; for use by r-graph TRAVersal programs
+
+;;;	   (INSTAN-STATUS ())		;; current INSTANtiation-STATUS,
+;;;					;;  either 'SCHEMATIC or 'DETERMINATE
+;;;	   (GOAL-RLVT-CONSIDS ())	;; these have at least one GOAL-node
+;;;	   (GOAL-PART-CONSIDS ())	;; these have at least one GOAL-node
+
+(DEFMACRO ISA-RP-NODE (RG-ITEM)
+  `(MEMQ (CAR ,RG-ITEM) '(TARGET KNOWLEDGE)) )
+
+;;; NOTE: for the time being at least, INSTAN-STATUS is obselete (1 Dec 82).
+; Rules of INSTAN-STATUS:  rp-nodes are the primary carriers of this property,
+;  and are DETERMINATE iff their content is.  A consid-link is DETERMINATE in
+;  a secondary sense if its conclusion and all of its premises are DETERMINATE.
+;  If all the prem-nodes of a consid-link are determinate, then its concl-node
+;  should also be determinate.
+
+; this is a base-defstruct to be INCLUDEd in more specific defstructs
+(DEFSTRUCT (REASONING-CONSIDERATION-LINK (CONC-NAME CONSID-))
+	   (R-GRAPH ())
+	   (TYPE 'ORDINARY-CONSID)  ;; either ORDINARY-CONSID or NEGATION-CONSID
+	   (RULE ())			;; the governing epistemic rule
+	   (PREM-NODES ())		;; the premises
+	   (CONCL-NODE ())		;; the conclusion
+	   (INHER-REL-STRENGTH ())	;; inherent relative strength
+	   (FORCE ())	       ;; prima-facie in-situ epistatus for conclusion
+	   (GOAL-NODES ())     ;; prem- or concl-nodes sought, but not yet found
+	   (TRAV-LIST ()) )    ;; a slot for use by r-graph TRAVersal programs
+
+;;;	   (SCHEMA-NODES ())   ;; a list of all SCHEMAtic prem- or concl-nodes
+;;;	   (SUPP-STATUS 'INDETERMINATE) ;; current SUPPort status,
+;;;			       ;; either SUPPORT, NON-SUPPORT, or INDETERMINATE
+
+(DEFMACRO ISA-CONSID (RG-ITEM)
+  `(MEMQ (CAR ,RG-ITEM) '(ORDINARY-CONSID NEGATION-CONSID)) )
+
+(DEFSTRUCT (CONSIDERATION-FORCE (TYPE TREE) (CONC-NAME CNSD-FORCE-))
+	   (INDICATOR 'IF-ALONE)
+	   (VALUE ()) )	   ;; either a Prima-Facie BEL-LEVEL for a conclusion,
+
+(DEFMACRO (CREATE-ADVICE-CONSID defmacro-for-compiling 't) (CF-VALUE)
+ `(MAKE-REASONING-CONSIDERATION-LINK
+	RULE 'USER-ADVICE
+	CONCL-NODE '***
+	FORCE (MAKE-CONSIDERATION-FORCE VALUE ,CF-VALUE) ) )
+
+(DEFMACRO CSR:COPY-CONSID-FORCE (F)
+  `(MAKE-CONSIDERATION-FORCE
+      INDICATOR (CNSD-FORCE-INDICATOR ,F)
+      VALUE (CNSD-FORCE-VALUE ,F) ) )
+
+; We copy consids at the hunk level because consids will be of many specialized
+;  types, and it would be extremely inconvenient to write code to copy each
+;  type on a case-by-case basis.
+(DEFUN CSR:COPY-CONSID (CONSID)
+  (OR (HUNKP CONSID) (BREAK |CSR:COPY-CONSID - consid not a hunk!|))
+  (LET ((HUNKCOPY (MAKHUNK (HUNKSIZE CONSID))))
+       (DO ((INDEX 0 (1+ INDEX))
+	    (HUNKSIZE (HUNKSIZE CONSID)) )
+	   ((= INDEX HUNKSIZE) HUNKCOPY)
+	   (RPLACX INDEX HUNKCOPY (CXR INDEX CONSID)) ) ) )
+
+(DEFSTRUCT (QMP-CONSID CONC-NAME (INCLUDE REASONING-CONSIDERATION-LINK
+					  (RULE 'QUANTIFIED-MODUS-PONENS)
+					  (INHER-REL-STRENGTH 'CERTAIN-AWPC) ))
+	   (Q-PREM-NODE ())		;; mnemonic for: Quantified premise
+	   (S-PREM-NODE ()) )		;; mnemonic for: Singular premise
+
+(DEFSTRUCT (STAT-CONSID CONC-NAME (INCLUDE REASONING-CONSIDERATION-LINK
+					  (RULE 'STATISTICAL-SYLLOGISM)
+					  (INHER-REL-STRENGTH 'DOUBTLESS-AWPC) ))
+	   (STAT-PREM-NODE ())		;; mnemonic for: STATistical premise
+	   (S-PREM-NODE ()) )		;; mnemonic for: Singular premise
+
+(DEFSTRUCT (NEG-CONSID CONC-NAME (INCLUDE REASONING-CONSIDERATION-LINK
+					  (RULE 'NEGATION)
+					  (INHER-REL-STRENGTH
+					      'NEG-CERTAIN-AWPC ) ))
+	   (N-PREM-NODE ()) )		;; mnemonic for: Negation premise
+
+;Some testing and demonstration code
+;(setq c0 (make-reasoning-consideration-link premises 'premises
+;					    conclusion 'conclusion
+;					    rule 'rule
+;					    root 'root ))
+
+;(typep c0)
+;(car c0)
+;(consid-type c0)
+;(consid-rule c0)
+
+;(setq c1 (make-qmp-consid premises 'premises
+;			  conclusion 'conclusion
+;			  root 'root
+;			  q-prem 'q-prem
+;			  s-prem 's-prem ))
+
+;(typep c1)
+;(car c1)
+;(consid-type c1)
+;(consid-rule c1)
+;(qmp-consid-rule c1)	;; note: causes undefined-function error
+;(qmp-consid-q-prem c1)
+;(qmp-consid-s-prem c1)
+
+(DEFSTRUCT (DN-CONSID CONC-NAME (INCLUDE REASONING-CONSIDERATION-LINK
+					  (RULE 'DEDUCTIVE-NECESSARY) )))
+; do we need to include or summarize intermediate conclusions and rules?
+			;; CONSID-PREMISES contains the ultimate premises.
+			;; CONSID-CONCLUSION contains the final conclusion.
+
+(DEFSTRUCT (CINF-CONSID CONC-NAME (INCLUDE REASONING-CONSIDERATION-LINK
+					  (RULE 'CAUSAL-INFLUENCE) ))
+	   (INF-LAWS ())	; mnemonic for: LAW-of-causal-INFluence premiseS
+	   (CC-PREMS ()) )	;; mnemonic for: Causal-Condition PREMises
+			  ;; CONSID-CONCLUSION is a set of influence-conclusions
+
+(DEFSTRUCT (CACT-CONSID CONC-NAME (INCLUDE REASONING-CONSIDERATION-LINK
+					  (RULE 'CAUSAL-ACTION) ))
+	   (AL-PREM ())		;; mnemonic for: causal-Action-Law PREMise
+	   (I-PREMS ())		;; mnemonic for: Influence PREMiseS
+	   (C-M-PREM ()) )	;; mnemonic for: Completeness Meta-PREMise
+
+(DEFSTRUCT (CAUS-CONSID CONC-NAME (INCLUDE REASONING-CONSIDERATION-LINK
+					  (RULE 'CAUSAL-CONSEQUENCE) ))
+	   (INF-LAWS ())	; mnemonic for: LAW-of-causal-INFluence premiseS
+	   (CC-PREMS ())	;; mnemonic for: Causal-Condition PREMises
+; do we need to include or summarize intermediate conclusions and rules?
+	   (ACT-LAW ())		;; mnemonic for: law of causal action
+	   (C-PREM ()) )	;; mnemonic for: Completeness meta-PREMise
+
+(DEFSTRUCT (REASONING-EXPERT (CONC-NAME R-EXPERT-))
+	     TYPE		;; either RULE-EXPERT or HEURISTIC-EXPERT
+	     R∨H-NAME		;; either <rule-name> or <heuristic-name>
+	     DESCRIPTION
+	     FORWARD-METHOD 
+	     BACKWARD-METHOD
+	     FM-PREDICATES
+	     BM-PREDICATE ) ;; an applicability condition for BACKWARD-METHOD
+
+;		Reasoning-Graph Maintenance Processes
+;		   plus a few other related things
+
+(DEFUN LTI-CREATE-WFF-NEGATION (LTI-EXPR)
+ (COND ((EQ 'NEGPROPO (LT-TYPE LTI-EXPR)) (SUBST () () (CADR LTI-EXPR)))
+       (T `(¬ ,(SUBST () () LTI-EXPR))) ) )
+
+(DEFMACRO LTI-QSORT-EXPR (LTI-QUANTPROPO)
+ `(NTH 2 (CAR ,LTI-QUANTPROPO)) )
+
+(DEFMACRO LTI-Q-KERNEL (LTI-QUANTPROPO)
+  `(CADR ,LTI-QUANTPROPO) )
+    ;;  this is just a non-general temporary hack; the general function
+    ;;   already exists for the long-run LT-formalism.
+
+(DEFMACRO LTI-¬SCOPE (LTI-EXPR)
+ `(CADR ,LTI-EXPR) )
+
+; the 'Q' connotes "EQ" and "ASSQ"
+(DEFMACRO (A-Q-GET defmacro-for-compiling 't) (A-LIST INDICATOR)
+  `(CDR (ASSQ ,INDICATOR ,A-LIST)) )
+
+; uses ASSOC instead of ASSQ.
+(DEFMACRO (A-GET defmacro-for-compiling 't) (A-LIST INDICATOR)
+  `(CDR (ASSOC ,INDICATOR ,A-LIST)) )
+
+(DEFMACRO (RA-Q-GET defmacro-for-compiling 't) (A-LIST INDICATOR)
+  `(CAR (RASSQ ,INDICATOR ,A-LIST)) )
+
+(DEFMACRO CSR:COPY-A-LIST (A-LIST)
+ `(MAPCAR #'(LAMBDA (ENTRY)
+	      (CONS (CAR ENTRY) (CDR ENTRY)) )
+	  ,A-LIST ) )
+
+(DEFMACRO (CSR:NEGATE-BEL-LEVEL defmacro-for-compiling 't) (BEL-LEVEL)
+  `(A-Q-GET *BL-NEG-INDEX* ,BEL-LEVEL) )
+
+; For use only by CSR:INITIALIZE-R-GRAPH and CSR:GENERAL-UPDATE-BORDER
+(DEFMACRO CSR:UPDATE-BORDER (RP-NODE ACCESSOR)
+  (LET ((BORDR `(,ACCESSOR R-GRAPH)))
+       `(COND ((NOT (MEMQ ,RP-NODE ,BORDR))
+	         (SETF ,BORDR (CONS ,RP-NODE ,BORDR)) )) ) )
+
+; Replaces reason:start-reason
+(DEFUN CSR:INITIALIZE-R-GRAPH (QUERY)
+  (LET* ((R-GRAPH (MAKE-REASONING-GRAPH RB-CONTEXT (QUERY-WT-CNTXT QUERY)))
+	 (TRGT-NODE (CSR:UPDATE-R-GRAPH QUERY R-GRAPH 'TARGET 'FRONTIER)) )
+	(CSR:UPDATE-BORDER TRGT-NODE R-GRAPH-T-BASIS)
+	TRGT-NODE ) )
+
+; For use only by CSR:UPDATE-R-GRAPH
+(DEFMACRO CSR:GENERAL-UPDATE-BORDER (RP-NODE NODE-TYPE BORDER)
+ `(CASEQ ,NODE-TYPE
+    (KNOWLEDGE (CASEQ ,BORDER
+		 (BASIS (CSR:UPDATE-BORDER ,RP-NODE R-GRAPH-K-BASIS))
+		 (FRONTIER (CSR:UPDATE-BORDER ,RP-NODE R-GRAPH-K-FRONTIER))
+		 (T (BREAK |CSR:GENERAL-UPDATE-BORDER - bad value for BORDER|)) ))
+    (TARGET (CASEQ ,BORDER
+	      (BASIS (CSR:UPDATE-BORDER ,RP-NODE R-GRAPH-T-BASIS))
+	      (FRONTIER (CSR:UPDATE-BORDER ,RP-NODE R-GRAPH-T-FRONTIER))
+	      (T (BREAK |CSR:GENERAL-UPDATE-BORDER - bad value for BORDER|)) ))
+    (T (BREAK |CSR:GENERAL-UPADATE-BORDER - bad value for NODE-TYPE|)) ) )
+; We might at some point want to add to this fn the deletion of related nodes
+;  from the border, but this would require still another argument to the fn.
+
+; For use only by CSR:PLACE-B∨Q-IN-R-GRAPH
+(DEFMACRO CSR:NODIFY-CONSIDS (CNSD-LIST NODE)
+ `(MAPC #'(LAMBDA (CNSD)
+	    (COND ((EQ '*** (CONSID-CONCL-NODE CNSD))
+		     (SETF (CONSID-CONCL-NODE CNSD) ,NODE)
+		     (SETF (CONSID-R-GRAPH CNSD) (RP-NODE-R-GRAPH ,NODE)) )) )
+	,CNSD-LIST ) )
+
+; For use only by CSR:UPDATE-R-GRAPH
+(DEFMACRO CSR:PLACE-B∨Q-IN-R-GRAPH (BLF∨QRY R-GRAPH NODE-TYPE)
+ `(LET ((OLD-RP-NODE (CSR:GET-RP-NODE ,BLF∨QRY ,R-GRAPH ,NODE-TYPE )))
+       (COND (OLD-RP-NODE)
+	     (T (LET* ((RLVT-CONSIDS
+			(A-Q-GET (EPIST-BL-GROUNDS (BELIEF-EPISTATUS ,BLF∨QRY))
+				 'RLVT-CONSIDS ) )
+		       (NEW-RP-NODE (MAKE-REASONING-PROPOSITION-NODE
+				       R-GRAPH ,R-GRAPH
+				       TYPE ,NODE-TYPE
+				       CONTENT ,BLF∨QRY
+				       RLVT-CONSIDS RLVT-CONSIDS )) )
+   ;; break in code-indentation to give more room...
+   (COND (RLVT-CONSIDS
+	   (CSR:NODIFY-CONSIDS RLVT-CONSIDS NEW-RP-NODE)))
+   (CSR:UPDATE-RG-DIRECTORY NEW-RP-NODE ,R-GRAPH ,NODE-TYPE)
+   (COND ((EQ 'TARGET ,NODE-TYPE)
+	    (LET ((NEW-NEG-RP-NODE
+		    (MAKE-REASONING-PROPOSITION-NODE
+		       R-GRAPH ,R-GRAPH
+		       TYPE ,NODE-TYPE
+		       CONTENT (CSR:CREATE-B∨Q-NEGATION ,BLF∨QRY)
+		       NEGATION NEW-RP-NODE ) ))
+		 (SETF (RP-NODE-NEGATION NEW-RP-NODE) NEW-NEG-RP-NODE)
+		 (SETQ NEW-NEGATION-NODE NEW-NEG-RP-NODE)
+		 (CSR:UPDATE-RG-DIRECTORY NEW-NEG-RP-NODE ,R-GRAPH ,NODE-TYPE) ) ))
+   NEW-RP-NODE )) ) ) )
+
+(DEFUN CSR:UPDATE-R-GRAPH (BLF∨QRY R-GRAPH NODE-TYPE BORDER
+						       &aux NEW-NEGATION-NODE )
+  (LET ((RP-NODE
+	    (CSR:PLACE-B∨Q-IN-R-GRAPH BLF∨QRY R-GRAPH NODE-TYPE) ))
+       (CSR:GENERAL-UPDATE-BORDER RP-NODE NODE-TYPE BORDER)
+       (COND (NEW-NEGATION-NODE
+	       (CSR:GENERAL-UPDATE-BORDER NEW-NEGATION-NODE NODE-TYPE BORDER) ))
+       RP-NODE ) )
+
+(DEFMACRO CSR:EQUIV-P-UNITS (P-UNIT1 P-UNIT2)
+ `(LET ((WFF1 (GET ,P-UNIT1 'FORMULA))
+	(WFF2 (GET ,P-UNIT2 'FORMULA)) )
+       (EQUAL WFF1 WFF2) ) )
+
+; Similar to rpg's reason:sentence-in-tree
+(DEFUN CSR:GET-RP-NODE (BEL∨QRY R-GRAPH NODE-TYPE)
+  (LET ((DIRECTORY (CASEQ NODE-TYPE
+		      (TARGET (R-GRAPH-T-DIRECTORY R-GRAPH))
+		      (KNOWLEDGE (R-GRAPH-K-DIRECTORY R-GRAPH))
+		      (T (BREAK |CSR:GET-RP-NODE - improper directory-type.|)) ))
+	(P-UNIT (BELIEF-P-UNIT BEL∨QRY))
+	(CONTEXT (BELIEF-WT-CNTXT BEL∨QRY))
+	(EPISTATUS (BELIEF-EPISTATUS BEL∨QRY)) )
+       (DO ((DIR-TAIL DIRECTORY (CDR DIR-TAIL))
+	    (DIR-ENTRY) )
+	   ((NULL DIR-TAIL) NIL)
+	   (SETQ DIR-ENTRY (CAR DIR-TAIL))
+	   (COND ((AND (CSR:EQUIV-P-UNITS P-UNIT (RG-DIR-ENTRY-P-UNIT DIR-ENTRY))
+		       (EQ CONTEXT (RG-DIR-ENTRY-CONTEXT DIR-ENTRY))
+		     ;; perhaps we should add an EPISTATUS field to rg-directory
+		       (OR (EQUAL-EPISTATI
+			      EPISTATUS
+			      (BELIEF-EPISTATUS
+			        (RP-NODE-CONTENT
+				   (RG-DIR-ENTRY-RP-NODE DIR-ENTRY) ) ) )
+			   (BREAK |CSR:GET-RP-NODE - epistatus mismatch.  ok, or not?|) ) )
+		  (RETURN (RG-DIR-ENTRY-RP-NODE DIR-ENTRY)) )) ) ) )
+
+; make this a macro for use only by CSR:PLACE-B∨Q-IN-R-GRAPH
+(DEFUN CSR:UPDATE-RG-DIRECTORY (RP-NODE R-GRAPH DIR-TYPE)
+  (LET* ((BLF∨QRY (RP-NODE-CONTENT RP-NODE))		;; a belief or query
+	 (RG-DIR-ENTRY
+	    (MAKE-RG-DIRECTORY-ENTRY
+		P-UNIT (BELIEF-P-UNIT BLF∨QRY)		;; works for query, too
+		CONTEXT (BELIEF-WT-CNTXT BLF∨QRY)	;; works for query, too
+		RP-NODE RP-NODE ) ) )
+	(CASEQ DIR-TYPE
+	   (TARGET (PUSH RG-DIR-ENTRY (R-GRAPH-T-DIRECTORY R-GRAPH)))
+	   (KNOWLEDGE (PUSH RG-DIR-ENTRY (R-GRAPH-K-DIRECTORY R-GRAPH))) ) ) )
+
+(DEFUN CSR:INSTALL-CONSID-LINK (CONSID
+				  &aux (CONCL-NODE (CONSID-CONCL-NODE CONSID)) )
+  (PUSH CONSID (R-GRAPH-CONSID-LIST (CONSID-R-GRAPH CONSID)))
+  (SETF* (RP-NODE-RLVT-CONSIDS CONCL-NODE) (CONS CONSID -*-))
+  (MAPC #'(LAMBDA (PREM-NODE)
+	    (SETF* (RP-NODE-PART-CONSIDS PREM-NODE) (CONS CONSID -*-)) )
+	(CONSID-PREM-NODES CONSID) )
+  (COND ((AND (EQ 'TARGET (RP-NODE-TYPE CONCL-NODE))
+	      (NULL (CONSID-GOAL-NODES CONSID)) )
+	   (CSR:PROPAGATE-DETERMINACY CONCL-NODE) )) )
+
+(DEFUN CSR:PROPAGATE-DETERMINACY (RP-CONCL-NODE &aux CHANGE-FLAG)
+ (MAPC #'(LAMBDA (PART-CONSID)
+	   (SETQ CHANGE-FLAG NIL)
+	   (COND ((MEMQ RP-CONCL-NODE (CONSID-GOAL-NODES PART-CONSID))
+		    (SETF* (CONSID-GOAL-NODES PART-CONSID)
+			   (DELQ RP-CONCL-NODE -*-) )
+		    (SETQ CHANGE-FLAG 'T) ))
+	   (LET ((CONCL2-NODE (CONSID-CONCL-NODE PART-CONSID)))
+		(COND ((AND CHANGE-FLAG
+			    (NULL (CONSID-GOAL-NODES PART-CONSID)) )
+			 (CSR:PROPAGATE-DETERMINACY CONCL2-NODE) )) ) )
+       (RP-NODE-PART-CONSIDS RP-CONCL-NODE) ) )
+
+; This will require modification when non-singleton lists are allowed as
+;  BL-GROUNDS and BF-GROUNDS.
+(DEFUN EQUAL-EPISTATI (EPISTATUS1 EPISTATUS2)
+  (AND (EQUAL (EPIST-BEL-LEVEL EPISTATUS1) (EPIST-BEL-LEVEL EPISTATUS2))
+       (EQUAL (EPIST-BL-GROUNDS EPISTATUS1) (EPIST-BL-GROUNDS EPISTATUS2))
+       (EQUAL (EPIST-BEL-FIRMNESS EPISTATUS1) (EPIST-BEL-FIRMNESS EPISTATUS2))
+       (EQUAL (EPIST-BF-GROUNDS EPISTATUS1) (EPIST-BF-GROUNDS EPISTATUS2)) ) )
+
+(DEFUN CSR:CREATE-B∨Q-NEGATION (BLF∨QRY)
+ (LET* ((B∨Q-WFF (BELIEF-FORMULA BLF∨QRY))
+	(POS-NEGATIONP (EQ 'NEGPROPO (LT-TYPE B∨Q-WFF)))
+	(B∨Q-NEGATION (CSR:COPY-BLF∨QRY BLF∨QRY))
+	(NEGATION-P-UNIT (QUERY-P-UNIT B∨Q-NEGATION))
+	(NEGATION-EPISTATUS (BELIEF-EPISTATUS B∨Q-NEGATION))
+	(NEGATION-BEL-LEVEL (EPIST-BEL-LEVEL NEGATION-EPISTATUS))
+	(NEGATION-F-DESCRIPTS
+	   (CSR:COPY-A-LIST (GET NEGATION-P-UNIT 'F-DESCRIPTS)) ) )
+       (SETF* NEGATION-F-DESCRIPTS
+	      (A-Q-PUTPROP -*- (COND (POS-NEGATIONP (LT-TYPE (LTI-¬SCOPE B∨Q-WFF)) )
+				     (T 'NEGPROPO) )
+			   'LT-TYPE ) )
+       (PUTPROP NEGATION-P-UNIT NEGATION-F-DESCRIPTS 'F-DESCRIPTS)
+        ;; this is not fully general; further changes to NEGATION-F-DESCRIPTS
+        ;;  may be needed, e.g.,
+        ;;  (A-Q-PUTPROP NEGATION-F-DESCRIPTS <nextVAL> <nextIND>) , etc.
+       (PUTPROP NEGATION-P-UNIT (LTI-CREATE-WFF-NEGATION B∨Q-WFF) 'FORMULA)
+       (COND ((AND NEGATION-BEL-LEVEL
+		   (NOT (EQ 'INDETERMINATE NEGATION-BEL-LEVEL)) )
+	        (SETF (EPIST-BEL-LEVEL NEGATION-EPISTATUS)
+		      (CSR:NEGATE-BEL-LEVEL NEGATION-BEL-LEVEL) ) ))
+       B∨Q-NEGATION ) )
+
+;		     Reasoning Processes
+
+(DEFUN CSR:CREATE-FUNDAMENTAL-CONTEXTS ()
+  (SETQ -ALLWORLDS- -CONTEXT:GLOBAL-)
+  (SETQ -NATURE- (CONTEXT:SPROUT-CONTEXT -ALLWORLDS-))
+  (SETQ -REALWORLD- (CONTEXT:SPROUT-CONTEXT -NATURE-))
+;?(CONTEXT:ADD-VISIBILITY -ALLWORLDS- -REALWORLD-)
+  ;? would this foul up rpg's system of marking and searching contexts?
+  (SETQ -CONTEXT- -REALWORLD-)
+  '|The Fundamental Contexts Now Exist.| )
+
+; NOTE: unless A-LIST is guaranteed to be non-empty,
+;	 this fn should be used only for value, and not just for side-effect.
+; the 'Q' connotes "EQ" and "ASSQ".
+(DEFUN A-Q-PUTPROP (A-LIST VALUE IND)
+ (COND ((NULL A-LIST) `((,IND . ,VALUE)))
+       (T (LET ((ENTRY (ASSQ IND A-LIST)))
+	       (COND (ENTRY (SETF (CDR ENTRY) VALUE) A-LIST)
+		     (T (SETF* (CDR A-LIST) (CONS (CAR A-LIST) -*-))
+			(SETF (CAR A-LIST) `(,IND . ,VALUE))
+			A-LIST ) ) )) ) )
+
+; NOTE: unless A-LIST is guaranteed to be non-empty,
+;	 this fn should be used only for value, and not just for side-effect.
+;  uses ASSOC instead of ASSQ.
+(DEFUN A-PUTPROP (A-LIST VALUE IND)
+ (COND ((NULL A-LIST) `((,IND . ,VALUE)))
+       (T (LET ((ENTRY (ASSOC IND A-LIST)))
+	       (COND (ENTRY (SETF (CDR ENTRY) VALUE) A-LIST)
+		     (T (SETF* (CDR A-LIST) (CONS (CAR A-LIST) -*-))
+			(SETF (CAR A-LIST) `(,IND . ,VALUE))
+			A-LIST ) ) )) ) )
+
+(DEFMACRO CSR:NORMALIZE-MEM-BELIEF (MEM-QUERY QUERY)
+  `(PROGN (CSR:NORMALIZE-EPISTATUS ,MEM-QUERY ,QUERY)
+	  (CSR:NORMALIZE-BELIEF-TYPE ,MEM-QUERY)
+	  (SETF (EPIST-BL-GROUNDS (BELIEF-EPISTATUS ,MEM-QUERY))
+		'((MEMORY-INVESTIGATION-CONSIDS  |<summarized-consids>|)) )
+	  (SETF (EPIST-BL-GROUNDS (BELIEF-EPISTATUS ,QUERY))
+		'((MEMORY-INVESTIGATION-CONSIDS  |<summarized-consids>|)) ) ) )
+
+  ;; Last revised:  7 Dec 1982;  original version:  2 Nov 1982.
+  ;; REASONING-SPECS and ADVICE are sets of attribute-value pairs, in a-list
+  ;;  format.  The former specifies parameters of the reasoning such as
+  ;;  resource allocation and constraints, while the latter gives heuristic
+  ;;  guidance for the discovery of considerations.
+ ;;; NOTE: this fn currently modifies the epistatus of QUERY.
+(DEFUN CSR:INVESTIGATE-FROM-MEMORY (QUERY REASONING-SPECS &optional ADVICE)
+ (PROG (MEM-QUERY MEM-BELIEF CURRENT-EPISTATUS TGT-RP-NODE R-GRAPH
+	STOPPING-REASON TOTAL-EFFORT TASK-RECORD CONCLUSIVENESS )
+   ;; Eventually this could be an agenda-driven, rather than fixed-order, loop,
+   ;;  with agenda priorities determined by REASONING-SPECS and ADVICE.
+       (SETQ MEM-QUERY (CSR:CREATE-NORMAL-QUERY QUERY))
+       (SETQ MEM-BELIEF (CSR:MEMORY-LOOKUP MEM-QUERY))
+       (COND (MEM-BELIEF
+	      (SETQ CURRENT-EPISTATUS (BELIEF-EPISTATUS MEM-BELIEF)
+		    CONCLUSIVENESS (CSR:CONCLUSIVE-ENOUGH?
+				     CURRENT-EPISTATUS REASONING-SPECS ) )
+	      (COND ((EQ 'SUFFICIENT CONCLUSIVENESS)
+		       (SETQ STOPPING-REASON 'INITIAL-MEM-LOOKUP-SUCCESS)
+		       (GO END) )
+		    (T (SETQ TGT-RP-NODE (CSR:INITIALIZE-R-GRAPH QUERY))
+		       (CSR:ENTER-MEMORY-CONSID MEM-BELIEF TGT-RP-NODE) ) ) ))
+       (OR TGT-RP-NODE (SETQ TGT-RP-NODE (CSR:INITIALIZE-R-GRAPH QUERY)))
+       (SETQ R-GRAPH (RP-NODE-R-GRAPH TGT-RP-NODE))
+       (MULTIPLE-VALUE (STOPPING-REASON TOTAL-EFFORT TASK-RECORD)
+	 (CSR:FIND-CONSIDERATIONS TGT-RP-NODE REASONING-SPECS ADVICE) )
+       (CSR:COMPOSE-CONSIDERATIONS TGT-RP-NODE)
+       (CSR:NORMALIZE-MEM-BELIEF MEM-QUERY QUERY)
+       (SETQ MEM-BELIEF (CSR:RECORD-BELIEF MEM-QUERY)
+	     CURRENT-EPISTATUS (BELIEF-EPISTATUS MEM-BELIEF)
+	     CONCLUSIVENESS (CSR:CONCLUSIVE-ENOUGH?
+			      CURRENT-EPISTATUS REASONING-SPECS ) )
+   END (RETURN (VALUES CONCLUSIVENESS QUERY MEM-BELIEF STOPPING-REASON
+		       TOTAL-EFFORT TASK-RECORD R-GRAPH )) ) )
+
+; memories are always stored and retrieved in un-negated form.
+;  currently, the normalized version is always a (perhaps modified) copy.
+(DEFUN CSR:CREATE-NORMAL-QUERY (QUERY &aux (QRY-WFF (QUERY-FORMULA QUERY))
+					   NEGFLAG )
+  (LET ((NORM-QRY (COND ((EQ 'NEGPROPO (LT-TYPE QRY-WFF))
+			   (SETQ NEGFLAG 'T)
+			   (CSR:CREATE-B∨Q-NEGATION QUERY) )
+			(T (CSR:COPY-BLF∨QRY QUERY)) )))
+	 ;; if NEGFLAG, some modification of NORM-QUERY might be needed
+	 ;;  beyond that provided by CSR:CREATE-B∨Q-NEGATION, e.g.,
+	 ;;  (A-Q-PUTPROP NORM-F-DESCRIPTS <newVAL> <oldIND>) , etc.
+       NORM-QRY ) )
+
+; this will require modification for use with the LT-representation.
+(DEFUN CSR:NORMALIZE-EPISTATUS (NORM-BLF∨QRY BLF∨QRY)
+  (LET ((NORM-WFF (BELIEF-FORMULA NORM-BLF∨QRY))
+	(REG-WFF (BELIEF-FORMULA BLF∨QRY)) )
+       (COND ((OR (EQ 'INDETERMINATE (BELIEF-BEL-LEVEL BLF∨QRY))
+		  (EQUAL NORM-WFF REG-WFF) )
+	        (SETF (BELIEF-BEL-LEVEL NORM-BLF∨QRY)
+		      (BELIEF-BEL-LEVEL BLF∨QRY) ) )
+	     ((EQUAL NORM-WFF (LTI-CREATE-WFF-NEGATION REG-WFF))
+	        (SETF (BELIEF-BEL-LEVEL NORM-BLF∨QRY)
+		      (CSR:NEGATE-BEL-LEVEL (BELIEF-BEL-LEVEL BLF∨QRY)) ) )
+	     (T (BREAK |CSR:NORMALIZE-EPISTATUS - wff mismatch|)) ) ) )
+
+(DEFUN CSR:MEMORY-LOOKUP (QUERY)
+  (CONTEXT:LOOKUP QUERY (QUERY-WT-CNTXT QUERY)) )
+
+(DEFUN CSR:RECORD-BELIEF (BELIEF)
+  (CONTEXT:ADD BELIEF (BELIEF-WT-CNTXT BELIEF))
+  BELIEF )
+
+(DEFUN CSR:CONCLUSIVE-ENOUGH? (EPISTATUS REASONING-SPECS)
+ (LET* ((BEL-LEVEL (EPIST-BEL-LEVEL EPISTATUS))
+	(CONC-LEVEL (A-Q-GET REASONING-SPECS 'CONCLUSIVENESS-LEVEL))
+	(NEG-CONC-LEVEL (A-Q-GET *BL-NEG-INDEX* CONC-LEVEL)) )
+       (COND ((EQ 'INDETERMINATE BEL-LEVEL) 'INSUFFICIENT)
+	       ;; can't compare INDETERMINATE
+	     ((OR (≥-BEL-LEVEL BEL-LEVEL CONC-LEVEL)
+		  (≤-BEL-LEVEL BEL-LEVEL NEG-CONC-LEVEL) )
+	        'SUFFICIENT)
+	     (T 'INSUFFICIENT) ) ) )
+
+(DEFUN CSR:NORMALIZE-BELIEF-TYPE (BLF∨QRY)
+ (LET* ((EPISTATUS (QUERY-EPISTATUS BLF∨QRY))
+	(BEL-LEVEL (EPIST-BEL-LEVEL EPISTATUS))
+;;	(BL-GROUNDS (EPIST-BL-GROUNDS EPISTATUS))
+;;	(BEL-FIRMNESS (EPIST-BEL-FIRMNESS EPISTATUS))
+;;	(BF-GROUNDS (EPIST-BF-GROUNDS EPISTATUS))
+	(NEW-BELIEF-TYPE
+	 ;; this is just a starting hack; something better is needed eventually.
+	  (CASEQ BEL-LEVEL
+	    ((CERTAIN DOUBTLESS VERY-LIKELY
+	      NEG-CERTAIN MOST-UNLIKELY VERY-UNLIKELY) 'KNOWLEDGE)
+	    ((FAIRLY-LIKELY SOMEWHAT-LIKELY LIKELY-AS-NOT
+	      SOMEWHAT-UNLIKELY FAIRLY-UNLIKELY) 'CONJECTURE)
+	    (INDETERMINATE 'WITHHOLDING)
+	    (T (BREAK |CSR:NORMALIZE-BELIEF-TYPE - unrecognized BEL-LEVEL|)) ) ) )
+       (SETF (BELIEF-TYPE BLF∨QRY) NEW-BELIEF-TYPE) ) )
+
+(DEFUN CSR:ENTER-MEMORY-CONSID (BELIEF TGT-RP-NODE)
+  BELIEF TGT-RP-NODE
+  (BREAK |CSR:ENTER-MEMORY-CONSIDERATION - fn not yet written.|) )
+
+(DEFMACRO AT:DO-R-TASK1-AGENDA (AGENDA TASK-RECORD-PTR)
+  `(LET* ((TASK1 (POP ,AGENDA))
+	  (TRIAL-REPORT (APPLY (R-TASK-METHOD TASK1)
+			       (R-TASK-ARGUMENTS TASK1) )))
+	(SETF (R-TASK-TRIAL-REPORT TASK1) TRIAL-REPORT)
+	(TCONC TASK1 ,TASK-RECORD-PTR) ) )
+
+(DEFMACRO AT:UPDATE-TOTAL-R-EFFORT (CURRENT-TOTAL TASK-RECORD-PTR)
+  `(SETQ ,CURRENT-TOTAL (+ ,CURRENT-TOTAL (R-TASK-EFFORT (CAAR ,TASK-RECORD-PTR)))) )
+
+; replaces the old reason:reason.
+ ;; REAS-SPECS and ADVICE are both attribute-value a-lists.
+ ;; CONTEXT is the mts-context of evaluation for the target P-UNIT.
+ ;;  mts-context  =  modality-time-situation-context
+(DEFUN CSR:FIND-CONSIDERATIONS (TGT-RP-NODE REAS-SPECS ADVICE)
+  (PROG (MAX-EFFORT CURRENT-TOTAL-EFFORT R-GRAPH T-FRONTIER
+	 QUITTING-REASON R-AGENDA R-TASK-RECORD-PTR )
+	;; R-AGENDA = reasoning-agenda;  R-TASK-RECORD-PTR = a TCONC cons-cell
+	;;  for an "ex-agenda" of executed tasks
+	(SETQ MAX-EFFORT (A-Q-GET REAS-SPECS 'MAX-EFFORT)
+	      CURRENT-TOTAL-EFFORT 0
+	      R-GRAPH (RP-NODE-R-GRAPH TGT-RP-NODE)
+	      R-TASK-RECORD-PTR (NCONS NIL) )
+    AGL	(SETQ T-FRONTIER (R-GRAPH-T-FRONTIER R-GRAPH))
+	(CSR:FIND-REASONING-TASKS 'R-AGENDA T-FRONTIER ADVICE)
+	(SETF (R-GRAPH-T-FRONTIER R-GRAPH) NIL)
+    DOL	(COND ((NULL R-AGENDA)
+	        (SETQ QUITTING-REASON 'EMPTY-AGENDA)
+	        (GO RET) )
+	      ((> (+ CURRENT-TOTAL-EFFORT (R-TASK-EFFORT (CAR R-AGENDA)))
+		  MAX-EFFORT )
+	        (SETQ QUITTING-REASON 'REACHED-EFFORT-LIMIT)
+	        (GO RET) ) )
+	(AT:DO-R-TASK1-AGENDA R-AGENDA R-TASK-RECORD-PTR)
+        (AT:UPDATE-TOTAL-R-EFFORT CURRENT-TOTAL-EFFORT R-TASK-RECORD-PTR)
+	(COND ((NULL R-AGENDA) (GO AGL))
+	      (T (GO DOL)) )
+    RET	(RETURN (VALUES QUITTING-REASON CURRENT-TOTAL-EFFORT
+			(CAR R-TASK-RECORD-PTR) )) ) )
+
+(DEFUN CSR:FIND-REASONING-TASKS (AGENDAV T-FRONTIER ADVICE)
+  (MAPC #'(LAMBDA (TF-RP-NODE)
+;	    (AT:INSERT-IN-AGENDA AGENDAV
+;				 (CSR:FIND-HR-TASKS TGT-RP-NODE ADVICE) )
+	    (AT:INSERT-IN-AGENDA AGENDAV
+				 (CSR:FIND-RR-TASKS TF-RP-NODE) ) )
+	T-FRONTIER )
+  ADVICE T )	;; to keep the compiler happy
+
+; this fn assumes that AGENDA-VAR is a bound variable, and does not check
+;  for duplicate tasks.
+(DEFUN AT:INSERT-IN-AGENDA (AGENDA-VAR TASK-LIST)
+  (MAPC #'(LAMBDA (NEW-TASK)
+	    (DO ((AG-TAIL (SYMEVAL AGENDA-VAR) (CDR AG-TAIL))
+		 (LAG-TAIL 'INIT AG-TAIL)
+		 (CURRENT-TASK) )
+		((NULL AG-TAIL)
+		   (COND ((EQ LAG-TAIL 'INIT)
+			    (SET AGENDA-VAR (NCONS NEW-TASK)) )
+			 (T (SETF (CDR LAG-TAIL) (NCONS NEW-TASK))) ) )
+		(SETQ CURRENT-TASK (CAR AG-TAIL))
+		(COND ((CSR:MORE-URGENT:1 NEW-TASK CURRENT-TASK)
+			 (COND ((EQ LAG-TAIL 'INIT)
+				  (SET AGENDA-VAR (CONS NEW-TASK
+							(SYMEVAL AGENDA-VAR) ))
+				  (RETURN 'T) )
+			       (T (SETF* (CDR LAG-TAIL) (CONS NEW-TASK -*-))
+				  (RETURN 'T) ) ) )) ) )
+	TASK-LIST ) )
+
+; Find heuristic-reasoning tasks
+(DEFUN CSR:FIND-HR-TASKS (TGT-RP-NODE ADVICE)
+  TGT-RP-NODE ADVICE
+  () )
+
+; Find rule-reasoning tasks.  First check for simple conclusion match, give
+;  priority 3.  Then check for goal-rlvt-consids of matching type and
+;  give priority 8.
+;  Currently, this fn only looks for BACKWARD-reasoning rr-tasks.
+(DEFUN CSR:FIND-RR-TASKS (TGT-NODE &aux R-TASKS)
+  (LET* ((NODE-TYPE (RP-NODE-TYPE TGT-NODE))
+;;	 (GOAL-RLVT-CONSIDS (SUBSET (RP-NODE-RLVT-CONSIDS TGT-NODE)
+;;				    #'(LAMBDA (CONSID)
+;;					(CONSID-GOAL-NODES CONSID) ) ))
+	 (P-UNIT (BELIEF-P-UNIT (RP-NODE-CONTENT TGT-NODE)))
+	 (CONCLUSION-RELEVANT-R-EXPERTS
+	   (CASEQ NODE-TYPE
+	     (TARGET (CSR:FIND-R-EXPERTS P-UNIT 'BACKWARD 'RULE-EXPERT))
+	     (T 'PUNT) ) ) )
+	(MAPC #'(LAMBDA (R-EXPERT)
+		  (PUSH (MAKE-REASONING-TASK
+			   DESCRIPTION 'PREMISE-SEARCH
+			   PRIORITY 3 ;; 3 is just an arbitrary coding of DESCRIPTION.
+			   R-EXPERT R-EXPERT
+			   METHOD (R-EXPERT-BACKWARD-METHOD R-EXPERT)
+			   ARGUMENTS (NCONS TGT-NODE)
+			   EFFORT 5 ) ;; 5 is just an arbitrary coding of MODERATE
+			R-TASKS ) )
+	      CONCLUSION-RELEVANT-R-EXPERTS )
+;	(DO ((CONSID-TAIL GOAL-RLVT-CONSIDS (CDR CONSID-TAIL))
+;	     (R-EXPERT) )
+;	    ((NULL CONSID-TAIL) 'T)
+;	    (SETQ R-EXPERT (CSR:GET-R-EXPERT (CONSID-RULE (CAR CONSID-TAIL))
+;					     'RULE-EXPERT ))
+;	    (PUSH (MAKE-REASONING-TASK
+;		     DESCRIPTION 'DEVELOP-GOAL-CONSID
+;		     PRIORITY 8	 ;; 8 is just an arbitrary coding of DESCRIPTION.
+;		     R-EXPERT R-EXPERT
+;		     METHOD (R-EXPERT-BACKWARD-METHOD R-EXPERT)
+;		     ARGUMENTS (NCONS (CAR CONSID-TAIL))
+;		     EFFORT 5 )    ;; 5 is just an arbitrary figure for MODERATE
+;		  R-TASKS ) )
+	R-TASKS ) )
+
+(DEFUN CSR:GET-R-EXPERT (EVID-RULE-NAME R-EXPERT-TYPE)
+  ;; EVID-RULE-NAME : quant-modus-ponens, causal-action, etc.
+  ;; R-EXPERT-TYPE  : either RULE-EXPERT or HEURISTIC-EXPERT
+  (LET ((R-EXPERT-NAME (IMPLODE (NCONC (EXPLODE EVID-RULE-NAME)
+				       '(- R - E X P E R T) )))
+	(EXPERTS-LIST (CASEQ R-EXPERT-TYPE
+			(RULE-EXPERT *ALL-R-RULE-EXPERTS-LIST*)
+			(HEURISTIC-EXPERT *ALL-R-HEURISTIC-EXPERTS-LIST*)
+			(T (BREAK |CSR:GET-R-EXPERT - unrecognized r-expert-type.|)) )) )
+       (ASSQ R-EXPERT-NAME EXPERTS-LIST) ) )
+
+; DIRECTION : either FORWARD or BACKWARD; this determines
+;		  whether to match premises or conclusions.
+; TYPE      : either RULE-EXPERT or HEURISTIC-EXPERT.
+(DEFUN CSR:FIND-R-EXPERTS (P-UNIT DIRECTION TYPE &aux R-EXPERTS)
+ (LET ((FORMULA (GET P-UNIT 'FORMULA))
+       (EXPERTS-LIST (CASEQ TYPE
+		       (RULE-EXPERT *ALL-R-RULE-EXPERTS-LIST*)
+		       (HEURISTIC-EXPERT *ALL-R-HEURISTIC-EXPERTS-LIST*)
+		       (T (BREAK |CSR:FIND-R-EXPERTS - unrecognized r-expert-type.|)) )) )
+      (CASEQ DIRECTION
+	(FORWARD NIL)
+	(BACKWARD
+	  (MAPC #'(LAMBDA (R-EXPERT)
+	 ;; In general, a more complex dual match of descriptors, then sentence,
+	 ;;  might be appropriate here.
+		    (LET ((BM-PRED (R-EXPERT-BM-PREDICATE R-EXPERT)))
+			 (COND ((AND BM-PRED (FUNCALL BM-PRED FORMULA))
+				  (PUSH R-EXPERT R-EXPERTS) )) ) )
+		EXPERTS-LIST ) )
+	(T (BREAK |CSR:FIND-R-EXPERTS - unrecognized direction.|)) )
+      R-EXPERTS ) )
+
+(DEFUN CSR:BEST-R-TASK (AGENDA)
+  (LET ((CURRENT-BEST (CAR AGENDA)))
+       (MAPC #'(LAMBDA (CAND-R-TASK)
+		 (COND ((CSR:MORE-URGENT:1 CAND-R-TASK CURRENT-BEST)
+			  (SETQ CURRENT-BEST CAND-R-TASK) )) )
+	     (CDR AGENDA) ) ) )
+
+(DEFUN CSR:MORE-URGENT:1 (R-TASK1 R-TASK2)
+  (> (R-TASK-PRIORITY R-TASK1) (R-TASK-PRIORITY R-TASK2)) )
+; Obviously, versions :2, :3, ... of this fn can be much more sophisticated,
+;  comparing the R-TASK-DESCRIPTIONs of each task in some appropriate way.
+
+;;; NOTE: none of the following five agenda functions is used as of 11/17/82.
+
+(DEFUN CSR:ORDER-AGENDA (AGENDA)
+  (SORT AGENDA #'CSR:MORE-URGENT:1) )
+
+; A sub-part of several following agenda-functions (arguments should be atomic).
+(DEFMACRO CSR:DO-AGENDA-R-TASK (R-TASKV AGENDAV TASK-RECORDV)
+ `(LET ((TRIAL-REPORT (APPLY (R-TASK-METHOD ,R-TASKV)
+			     (R-TASK-ARGUMENTS ,R-TASKV) )))
+       (SETQ ,AGENDAV (DELQ ,R-TASKV ,AGENDAV))
+       (SETF (R-TASK-TRIAL-REPORT ,R-TASKV) TRIAL-REPORT)
+       (PUSH ,R-TASKV ,TASK-RECORDV) ) )
+
+(DEFUN CSR:DO-R-TASK1-AGENDA (R-AGENDA TASK-RECORD)
+  (LET ((R-TASK (CAR R-AGENDA)))
+       (CSR:DO-AGENDA-R-TASK R-TASK R-AGENDA TASK-RECORD) ) )
+
+(DEFUN CSR:DO-BEST-R-TASK-AGENDA (AGENDA TASK-RECORD)
+  (LET ((R-TASK (CSR:BEST-R-TASK AGENDA)))
+       (CSR:DO-AGENDA-R-TASK R-TASK AGENDA TASK-RECORD) ) )
+
+(DEFUN CSR:DO-ALL-R-TASKS-AGENDA (AGENDA TASK-RECORD)
+  (MAPC #'(LAMBDA (R-TASK)
+	    (CSR:DO-AGENDA-R-TASK R-TASK AGENDA TASK-RECORD) )
+	AGENDA ) )
+
+(DEFUN CSR:KNOWLEDGE-LOOKUP-ALL (R-GRAPH DS-PRED SN-PRED EP-PRED)
+ (LET ((K-FRONTIER (R-GRAPH-K-FRONTIER R-GRAPH))
+       (RB-CNTXT (R-GRAPH-RB-CONTEXT R-GRAPH)) )
+      (VALUES (MAPCAN #'(LAMBDA (KF-RP-NODE)
+			 (LET* ((BELIEF (RP-NODE-CONTENT KF-RP-NODE))
+				(DESCRS (BELIEF-DESCRIPTS BELIEF))
+				(SENT (BELIEF-FORMULA BELIEF))
+				(EPIST (BELIEF-EPISTATUS BELIEF)) )
+			       (COND ((AND (FUNCALL DS-PRED DESCRS)
+					   (FUNCALL SN-PRED SENT)
+					   (OR (NULL EP-PRED)
+					       (FUNCALL EP-PRED EPIST) ) )
+					(NCONS BELIEF) )) ) )
+		      K-FRONTIER )
+		      ;; It may eventually be necessary to check also for
+		      ;;   non-frontier nodes in the r-graph knowledge-corpus.
+	      (CONTEXT:PRED-LOOKUP-ALL DS-PRED SN-PRED EP-PRED RB-CNTXT) ) ) )
+
+(DEFUN CSR:KNOWLEDGE-LOOKUP (R-GRAPH DS-PRED SN-PRED EP-PRED)
+ (LET ((K-FRONTIER (R-GRAPH-K-FRONTIER R-GRAPH))
+       (RB-CNTXT (R-GRAPH-RB-CONTEXT R-GRAPH)) )
+      (COND ((DO ((NODE-TAIL K-FRONTIER (CDR NODE-TAIL)))
+		 ((NULL NODE-TAIL) NIL)
+		 (LET* ((BELIEF (RP-NODE-CONTENT (CAR NODE-TAIL)))
+			(DESCRS (BELIEF-DESCRIPTS BELIEF))
+			(SENT (BELIEF-FORMULA BELIEF))
+			(EPIST (BELIEF-EPISTATUS BELIEF)) )
+		       (COND ((AND (FUNCALL DS-PRED DESCRS)
+				   (FUNCALL SN-PRED SENT)
+				   (OR (NULL EP-PRED)
+				       (FUNCALL EP-PRED EPIST) ) )
+			        (RETURN BELIEF) )) ) ) )
+		    ;; It may eventually be necessary to check also for
+		    ;;   non-frontier nodes in the r-graph knowledge-corpus.
+	    (T (CONTEXT:PRED-LOOKUP DS-PRED SN-PRED EP-PRED RB-CNTXT)) ) ) )
+
+(DEFUN >-BEL-LEVEL (LEVEL1 LEVEL2)
+  (COND ((OR (EQ 'INDETERMINATE LEVEL1) (EQ 'INDETERMINATE LEVEL2))
+	   (BREAK |>-BEL-LEVEL - can't compare INDETERMINATE|) ))
+  (MEMQ LEVEL2 (CDR (MEMQ LEVEL1 *ALL-BEL-LEVELS*))) )
+
+(DEFUN ≥-BEL-LEVEL (LEVEL1 LEVEL2)
+  (COND ((OR (EQ 'INDETERMINATE LEVEL1) (EQ 'INDETERMINATE LEVEL2))
+	   (BREAK |≥-BEL-LEVEL - can't compare INDETERMINATE|) ))
+  (NOT (MEMQ LEVEL1 (CDR (MEMQ LEVEL2 *ALL-BEL-LEVELS*)))) )
+
+(DEFUN <-BEL-LEVEL (LEVEL1 LEVEL2)
+  (COND ((OR (EQ 'INDETERMINATE LEVEL1) (EQ 'INDETERMINATE LEVEL2))
+	   (BREAK |<-BEL-LEVEL - can't compare INDETERMINATE|) ))
+  (MEMQ LEVEL1 (CDR (MEMQ LEVEL2 *ALL-BEL-LEVELS*))) )
+
+(DEFUN ≤-BEL-LEVEL (LEVEL1 LEVEL2)
+  (COND ((OR (EQ 'INDETERMINATE LEVEL1) (EQ 'INDETERMINATE LEVEL2))
+	   (BREAK |≤-BEL-LEVEL - can't compare INDETERMINATE|) ))
+  (NOT (MEMQ LEVEL2 (CDR (MEMQ LEVEL1 *ALL-BEL-LEVELS*)))) )
+
+
+; 	    Processes for Evaluation of Considerations
+
+; CSR:COMPOSE-CONSIDERATIONS composes the relevant considerations that have
+; been found for RP-NODE by first computing the force (prima-facie
+; conclusion-belief-level) of each relevant consideration, and then
+; computing a "resultant" of these forces in light of the particular types of
+; considerations involved.  Having thus computed a resultant belief-level for
+; RP-NODE, it stores this belief-level in the epistatus of RP-NODE's
+; content-query and returns this epistatus as value.  In general, computing the
+; force of a consideration may involve recursive calls of
+; CSR:COMPOSE-CONSIDERATIONS on some of the premises of that consideration.  In
+; connection with with this latter fact, it remains to be investigated whether
+; all reasonably discoverable considerations should be sought for each
+; consideration-premise before calling CSR:COMPOSE-CONSIDERATIONS on it.
+; Presently, the program does operate in this fashion.
+
+(DEFMACRO CSR:REFLECT-EPISTATUS (EPISTATUS NEG-EPISTATUS)
+ `(PROGN
+    (SETF (EPIST-BEL-LEVEL ,NEG-EPISTATUS)
+	    (CSR:NEGATE-BEL-LEVEL (EPIST-BEL-LEVEL ,EPISTATUS)) )
+    (SETF (EPIST-BL-GROUNDS ,NEG-EPISTATUS)
+	    '|See BL-GROUNDS of negation.| )
+    (SETF (EPIST-BEL-FIRMNESS ,NEG-EPISTATUS)
+	    (EPIST-BEL-FIRMNESS ,EPISTATUS) )
+    (SETF (EPIST-BF-GROUNDS ,NEG-EPISTATUS)
+	    '|See BF-GROUNDS of negation.| ) ) )
+
+(DEFUN CSR:COMPOSE-CONSIDERATIONS (RP-NODE)
+ (PROG (RLVT-PRO-CONSIDS NEG-RLVT-CONSIDS EPISTATUS NEGATION-EPISTATUS
+	RLVT-CON-CONSIDS ALL-RLVT-CONSIDS )
+       (SETQ RLVT-PRO-CONSIDS (RP-NODE-RLVT-CONSIDS RP-NODE)
+	     NEG-RLVT-CONSIDS (RP-NODE-RLVT-CONSIDS (RP-NODE-NEGATION RP-NODE))
+	     EPISTATUS (BELIEF-EPISTATUS (RP-NODE-CONTENT RP-NODE))
+	     NEGATION-EPISTATUS
+	       (BELIEF-EPISTATUS (RP-NODE-CONTENT (RP-NODE-NEGATION RP-NODE))) )
+       (CSR:COMPUTE-CONSID-FORCES RLVT-PRO-CONSIDS)
+       (CSR:COMPUTE-CONSID-FORCES NEG-RLVT-CONSIDS)
+       (SETQ RLVT-CON-CONSIDS (CSR:CREATE-NEGATION-CONSIDS NEG-RLVT-CONSIDS))
+       (SETQ ALL-RLVT-CONSIDS (NCONC (SUBSET RLVT-PRO-CONSIDS
+					     #'HAS-NON-ZERO-FORCE )
+				     (SUBSET RLVT-CON-CONSIDS
+					     #'HAS-NON-ZERO-FORCE ) ) )
+       (COND ((NULL ALL-RLVT-CONSIDS)
+		(SETF (EPIST-BEL-LEVEL EPISTATUS) 'INDETERMINATE)
+		(SETF (EPIST-BL-GROUNDS EPISTATUS)
+		      '|Ignorance| )
+		(SETF (EPIST-BEL-FIRMNESS EPISTATUS) 'ZERO)
+		(SETF (EPIST-BF-GROUNDS EPISTATUS)
+		      '|Memory-inquiry - No considerations found| )
+		(GO END) ))
+       (COND ((= (LENGTH ALL-RLVT-CONSIDS) 1)
+		(LET ((FORCE (CONSID-FORCE (CAR ALL-RLVT-CONSIDS))))
+		     (COND ((EQ 'IF-ALONE (CNSD-FORCE-INDICATOR FORCE))
+			      (SETF (EPIST-BEL-LEVEL EPISTATUS)
+				    (CNSD-FORCE-VALUE FORCE) )
+			      (GO END) )
+			   (T (BREAK |CSR:COMPOSE-CONSIDERATIONS - unrecognized force|)) ) ) ))
+       (LET ((DD-CONSID (CSR:ONE-DOMINATING-DED-CONSID ALL-RLVT-CONSIDS)))
+	    (COND (DD-CONSID 
+		   (LET ((FORCE (CONSID-FORCE DD-CONSID)))
+			(COND ((EQ 'IF-ALONE (CNSD-FORCE-INDICATOR FORCE))
+				 (SETF (EPIST-BEL-LEVEL EPISTATUS)
+				       (CNSD-FORCE-VALUE FORCE) )
+				 (GO END) )
+			      (T (BREAK |CSR:COMPOSE-CONSIDERATIONS - unrecognized force|)) ) ) )) )
+     ;	((= (LENGTH ALL-RLVT-CONSIDS) 2)
+     ;	   (and one consid is deductive and the other not...) )
+       (BREAK |CSR:COMPOSE-CONSIDERATIONS - punt!|)
+   END (CSR:REFLECT-EPISTATUS EPISTATUS NEGATION-EPISTATUS)
+       (RETURN EPISTATUS) ) )
+
+(DEFUN CSR:ONE-DOMINATING-DED-CONSID (CNSD-LIST)
+  (LET ((DED-CONSIDS (SUBSET CNSD-LIST
+			     #'(LAMBDA (CONSID)
+				 (EQ 'CERTAIN-AWPC
+				     (CONSID-INHER-REL-STRENGTH CONSID) ) ) )))
+       (COND ((AND DED-CONSIDS (= 1 (LENGTH DED-CONSIDS)))
+	       ;; we need another clause here taking account of the relative
+	       ;;  premise-strengths of the DED and ~DED consids.
+	        (CAR DED-CONSIDS) )
+	     (T NIL) ) ) )
+
+(DEFUN HAS-NON-ZERO-FORCE (CONSID)
+  (NOT (EQ 'ZERO (CNSD-FORCE-INDICATOR (CONSID-FORCE CONSID)))) )
+
+(DEFUN CSR:COMPUTE-CONSID-FORCES (CONSID-LIST &aux PREM-BEL-LEVELS)
+ (MAPC #'(LAMBDA (CONSID)
+	  (COND ((CONSID-FORCE CONSID))
+		((CONSID-GOAL-NODES CONSID)
+		   (SETF (CONSID-FORCE CONSID) '(ZERO . UNFOUND-PREMISES)) )
+		(T (SETQ PREM-BEL-LEVELS
+			 (MAPCAR #'CSR:COMPUTE-BEL-LEVEL
+				 (CONSID-PREM-NODES CONSID) ) )
+		   (SETF (CONSID-FORCE CONSID)
+			 (CSR:COMPUTE-CONSID-FORCE
+			     (CONSID-INHER-REL-STRENGTH CONSID)
+			     PREM-BEL-LEVELS ) ) ) ) )
+       CONSID-LIST ) )
+
+(DEFUN CSR:COMPUTE-CONSID-FORCE (INHER-REL-STRENGTH PREM-BEL-LEVELS)
+ (*CATCH 'C-C-F
+  (COND ((MEMQ 'INDETERMINATE PREM-BEL-LEVELS)
+	   (*THROW 'C-C-F '(INDETERMINATE . INDET-PREM-BEL-LEVELS)) ))
+  (CASEQ INHER-REL-STRENGTH
+    (CERTAIN-AWPC (CSR:CERTAIN-AWPC PREM-BEL-LEVELS))
+    (NEG-CERTAIN-AWPC (CSR:NEG-CERTAIN-AWPC PREM-BEL-LEVELS))
+    (DOUBTLESS-AWPC (CSR:DOUBTLESS-AWPC PREM-BEL-LEVELS))
+    (T (BREAK |CSR:COMPUTE-CONSID-FORCE - punt!|)) ) ) )
+
+(DEFUN CSR:CERTAIN-AWPC (PREM-BEL-LEVELS)
+  (LET* ((MIN-BLF-LEVEL (MIN-BEL-LEVEL PREM-BEL-LEVELS))
+	 (PRIMA-FACIE-BEL-LEVEL
+	  (COND ((>-BEL-LEVEL MIN-BLF-LEVEL 'LIKELY-AS-NOT) MIN-BLF-LEVEL)
+		(T 'ZERO) )) )
+	(MAKE-CONSIDERATION-FORCE VALUE PRIMA-FACIE-BEL-LEVEL) ) )
+
+(DEFMACRO CSR:REDUCE-1-BEL-LEVEL (BLF-LEVEL)
+ `(CADR (MEMQ ,BLF-LEVEL *ALL-BEL-LEVELS*)) )
+
+(DEFUN CSR:DOUBTLESS-AWPC (PREM-BEL-LEVELS)
+  (LET* ((MIN-BLF-LEVEL (MIN-BEL-LEVEL PREM-BEL-LEVELS))
+	 (PRIMA-FACIE-BEL-LEVEL
+	  (COND ((>-BEL-LEVEL MIN-BLF-LEVEL 'SOMEWHAT-LIKELY)
+		   (CSR:REDUCE-1-BEL-LEVEL MIN-BLF-LEVEL) )
+		(T 'ZERO) )) )
+	(MAKE-CONSIDERATION-FORCE VALUE PRIMA-FACIE-BEL-LEVEL) ) )
+
+(DEFUN CSR:NEG-CERTAIN-AWPC (PREM-BEL-LEVELS)
+ (LET* ((NEW-PF-BEL-LEVEL
+	 (A-Q-GET *BL-NEG-INDEX*
+		  (CNSD-FORCE-VALUE (CSR:CERTAIN-AWPC PREM-BEL-LEVELS)) ) ))
+       (MAKE-CONSIDERATION-FORCE VALUE NEW-PF-BEL-LEVEL) ) )
+
+(DEFMACRO CSR:CREATE-NEGATED-CONSID-FORCE (OLD-FORCE)
+ `(LET ((OLD-FORCE ,OLD-FORCE))
+       (COND ((EQ 'IF-ALONE (CNSD-FORCE-INDICATOR OLD-FORCE))
+	        (MAKE-CONSIDERATION-FORCE
+		   VALUE (CSR:NEGATE-BEL-LEVEL (CNSD-FORCE-VALUE OLD-FORCE)) ) )
+	     (T (CSR:COPY-CONSID-FORCE OLD-FORCE)) ) ) )
+
+(DEFUN CSR:CREATE-NEGATION-CONSIDS (CONSID-LIST)
+  (MAPCAR #'(LAMBDA (CONSID)
+	      (LET ((NEG-CONSID (CSR:COPY-CONSID CONSID)))
+		   (SETF (CONSID-TYPE NEG-CONSID) 'NEGATION-CONSID)
+		   (SETF (CONSID-FORCE NEG-CONSID)
+			 (CSR:CREATE-NEGATED-CONSID-FORCE (CONSID-FORCE CONSID)) )
+		   (SETF (CONSID-CONCL-NODE NEG-CONSID)
+			 (RP-NODE-NEGATION (CONSID-CONCL-NODE CONSID)) )
+		   (CSR:INSTALL-CONSID-LINK NEG-CONSID)
+		   NEG-CONSID ) )
+	  CONSID-LIST ) )
+
+(DEFUN MIN-BEL-LEVEL (BL-LIST)
+  (DO ((BL-TAIL (CDR BL-LIST) (CDR BL-TAIL))
+       (MINIMUM (CAR BL-LIST)) )
+      ((NULL BL-TAIL) MINIMUM)
+      (COND ((<-BEL-LEVEL (CAR BL-TAIL) MINIMUM)
+	       (SETQ MINIMUM (CAR BL-TAIL)) )) ) )
+
+(DEFMACRO SET-RP-NODE-BEL-LEVEL (RP-NODE VALUE)
+  `(LET ((VALUE ,VALUE))
+	(SETF (EPIST-BEL-LEVEL (BELIEF-EPISTATUS (RP-NODE-CONTENT ,RP-NODE)))
+	      VALUE )
+	VALUE ) )
+
+(DEFUN CSR:COMPUTE-BEL-LEVEL (RP-NODE &aux (BEL∨QRY (RP-NODE-CONTENT RP-NODE))
+				      (EPISTATUS (BELIEF-EPISTATUS BEL∨QRY))
+				      (BEL-LEVEL (EPIST-BEL-LEVEL EPISTATUS)) )
+  (COND ((MEMQ RP-NODE (R-GRAPH-K-BASIS (RP-NODE-R-GRAPH RP-NODE)))
+	   (OR (NOT (EQ 'INDETERMINATE BEL-LEVEL))
+	       (BREAK |CSR:COMPUTE-BEL-LEVEL - k-basis vs. b-level error|) )
+	   BEL-LEVEL )
+	(T (EPIST-BEL-LEVEL (CSR:COMPOSE-CONSIDERATIONS RP-NODE))) ) )
+
+(DEFUN HOW-DEFINITIVE? (BEL-LEVEL)
+ (CASEQ BEL-LEVEL
+   ((CERTAIN NEG-CERTAIN) 'MOST-DEFINITIVE)
+   ((DOUBTLESS MOST-UNLIKELY) 'QUITE-DEFINITIVE)
+   ((VERY-LIKELY VERY-UNLIKELY) 'FAIRLY-DEFINITIVE)
+   ((FAIRLY-LIKELY FAIRLY-UNLIKELY) 'NOT-VERY-DEFINITIVE)
+   ((SOMEWHAT-LIKELY SOMEWHAT-UNLIKELY) 'UNDEFINITIVE)
+   ((LIKELY-AS-NOT INDETERMINATE) 'MOST-UNDEFINITIVE)
+   (T (BREAK |HOW-DEFINITIVE? - unrecognized BEL-LEVEL|)) ) )
+;		      Reasoning Experts
+
+(putprop 'has-bill 'attribute 'category)
+(putprop 'has-lips 'attribute 'category)
+
+(DECLARE (special CONCL-LT-TYPE Q-KERNEL-PATT S-PREM-LT-TYPE S-PREM-SENT))
+; these lambda-vars are used freely in predicates passed to context:pred-lookup.
+
+(DEFMACRO AT-MATCH (DAT PATT)
+  `(%UMATCH ,DAT ,PATT) )
+
+(SETQ *ALL-R-RULE-EXPERTS-LIST* (LIST
+
+(MAKE-REASONING-EXPERT
+  TYPE 'RULE-EXPERT
+  R∨H-NAME 'QUANTIFIED-MODUS-PONENS
+  DESCRIPTION ()
+  FORWARD-METHOD  ()
+  BACKWARD-METHOD #'QUANT-MP-B-METHOD
+  FM-PREDICATES ()
+  BM-PREDICATE #'QUANT-MP-BM-PREDICATE1 )
+
+(MAKE-REASONING-EXPERT
+  TYPE 'RULE-EXPERT
+  R∨H-NAME 'STATISTICAL-SYLLOGISM
+  DESCRIPTION ()
+  FORWARD-METHOD  ()
+  BACKWARD-METHOD #'STATIST-B-METHOD
+  FM-PREDICATES ()
+  BM-PREDICATE #'STATIST-BM-PREDICATE1 )
+
+(MAKE-REASONING-EXPERT
+   TYPE 'RULE-EXPERT
+   R∨H-NAME 'CAUSAL-INFLUENCE
+   DESCRIPTION ()
+   FORWARD-METHOD  ()
+   BACKWARD-METHOD ()
+   FM-PREDICATES ()
+   BM-PREDICATE () )	;; an applicability condition for BACKWARD-METHOD
+;( MATCH-DESCRIPTIONS 
+;   '((IL-PREM-DESCR . ()) ;; mnemonic for: Influence-Law Premise-DESCRiption
+;     (CC-PREM-DESCR . ()) ;; mnemonic for: Causal-Condition Premise-DESCRiption
+;     (CONCL-DESCR .	   ;; mnemonic for: CONCLusion-DESCRiption
+;	(LAMBDA (CONCL) NIL) ) ) )
+
+(MAKE-REASONING-EXPERT
+   TYPE 'RULE-EXPERT
+   R∨H-NAME 'CAUSAL-ACTION
+   DESCRIPTION ()
+   FORWARD-METHOD  ()
+   BACKWARD-METHOD ()
+   FM-PREDICATES ()
+   BM-PREDICATE () )	;; an applicability condition for BACKWARD-METHOD
+;( MATCH-DESCRIPTIONS 
+;   '((AL-PREM-DESCR ())  ;; mnemonic for: causal Action-Law PREMise-DESCRiption
+;     (I-PREMS-DESCR ())  ;; mnemonic for: Influence PREMiseS-DESCRiption
+;     (C-M-PREM-DESCR ()) ;; mnemonic for: Completeness Meta-PREMise-DESCRiption
+;     (CONCL-DESCR .	  ;; mnemonic for: CONCLusion-DESCRiption
+;	(LAMBDA (CONCL) NIL) ) ) )
+
+)) 	;; End of the rule-expert list
+
+(DEFUN QUANT-MP-BM-PREDICATE1 (CONCL-EXPR)
+  (OR (AND (EQ 'ATOMICPROPO (LT-TYPE CONCL-EXPR))
+	   (= (LENGTH CONCL-EXPR) 2) )
+      (AND (EQ 'NEGPROPO (LT-TYPE CONCL-EXPR))
+	   (QUANT-MP-BM-PREDICATE1 (CADR CONCL-EXPR)) ) ) )
+; This is just a temporary hack.  In general, this predicate should return
+;  T iff CONCL-EXPR contains some quantifiable individual term.
+
+(DEFUN QUANT-MP-B-METHOD (RP-TGT-NODE)
+ (LET* ((CONCL-EXPR (QUERY-FORMULA (RP-NODE-CONTENT RP-TGT-NODE)))
+	 ;; conclusion expression
+	(R-GRAPH (RP-NODE-R-GRAPH RP-TGT-NODE))
+	(CONCL-LT-TYPE (LT-TYPE CONCL-EXPR))
+	(CONCL-SUBJ (CASEQ CONCL-LT-TYPE	;; this is just a temporary hack
+		      (ATOMICPROPO (CADR CONCL-EXPR))
+		      (NEGPROPO (CADADR CONCL-EXPR))
+		      (T 'PUNT NIL) ))
+	(Q-KERNEL-PATT (CASEQ CONCL-LT-TYPE
+			 (ATOMICPROPO  ;; unary case only
+			   (COND ((= (LENGTH CONCL-EXPR) 2)
+				    (LIST (CAR CONCL-EXPR) '?X) )
+				 (T 'PUNT NIL) ) )
+			 (NEGPROPO  ;; unary-atomic matrix only
+			  (COND ((AND (EQ 'ATOMICPROPO (LT-TYPE (CADR CONCL-EXPR)))
+				      (= 2 (LENGTH (CADR CONCL-EXPR))) )
+				   (LET (((NIL (PRED NIL)) CONCL-EXPR))
+					`(¬ (,PRED ?X)) ) )
+				(T 'PUNT NIL) ) )
+			 (T 'PUNT NIL) ) )
+	 ;; In general, one Q-KERNEL-PATT can be obtained for each different way
+	 ;;  of substituting '?X' for an individual term in CONCL-EXPR.  For
+	 ;;  large exprs, there will be many such ways, and some heuristic
+	 ;;  guidance will be needed to explore only the most promising of them.
+	(NEW-CONSID-LINKS) )
+       (MULTIPLE-VALUE-BIND (KF-Q-PREM-CANDS RC-Q-PREM-CANDS)
+	;; 	 knowledge-frontier beliefs, reasoning-context beliefs
+	;;  Both are lists of q-premise candidates.  Eventually, we'll need to
+	;;   eliminate any possible duplications of beliefs in these two lists.
+	  (CSR:KNOWLEDGE-LOOKUP-ALL
+	    R-GRAPH
+	    #'(LAMBDA (*DAL*) 
+		(AND (EQ 'QUANTIFIERFORM (A-Q-GET *DAL* 'LT-TYPE))
+		     (EQ '∀ (A-Q-GET *DAL* 'LT-DETERMINER))
+		     (EQ CONCL-LT-TYPE (A-Q-GET *DAL* 'LT-TYPE*Q-KERNEL)) ) )
+	    #'(LAMBDA (*SEN*) 
+		(AT-MATCH (LTI-Q-KERNEL *SEN*) Q-KERNEL-PATT) )
+	    #'(LAMBDA (*EPS*) 
+		(≥-BEL-LEVEL (EPIST-BEL-LEVEL *EPS*) 'VERY-LIKELY) ) )
+;(cond (rc-q-prem-cands (break qmp:test)))
+      (MAPC #'(LAMBDA (Q-PREM-CAND)	;; a belief
+		(LET* ((Q-PREM-SENT (BELIEF-FORMULA Q-PREM-CAND))
+		       (QSORT-EXPR (LTI-QSORT-EXPR Q-PREM-SENT))
+		       (S-PREM-SENT (LIST QSORT-EXPR CONCL-SUBJ))
+			;; this is not general; just a temporary hack
+		       (S-PREM-LT-TYPE (LT-TYPE S-PREM-SENT))
+		       (S-PREM-BELIEF
+	   ;; code too wide to indent properly
+	  (CSR:KNOWLEDGE-LOOKUP
+	    R-GRAPH
+	    #'(LAMBDA (*DAL*) 
+		(EQ S-PREM-LT-TYPE (A-Q-GET *DAL* 'LT-TYPE)) )
+	    #'(LAMBDA (*SEN*) 
+		(EQUAL *SEN* S-PREM-SENT) )
+	    #'(LAMBDA (*EPS*) 
+		(≥-BEL-LEVEL (EPIST-BEL-LEVEL *EPS*) 'VERY-LIKELY) ) ) ) )
+;(break qmp:test)
+    ;; code too wide to indent properly
+    (COND (S-PREM-BELIEF	;; complete success
+	   (LET* ((Q-PREM-NODE
+		   (CSR:UPDATE-R-GRAPH Q-PREM-CAND R-GRAPH 'KNOWLEDGE 'BASIS) )
+		  (S-PREM-NODE
+		   (CSR:UPDATE-R-GRAPH S-PREM-BELIEF R-GRAPH 'KNOWLEDGE 'BASIS) )
+		  (NEW-CONSID
+		   (MAKE-QMP-CONSID
+		     Q-PREM-NODE Q-PREM-NODE
+		     S-PREM-NODE S-PREM-NODE
+		     ; the following are CONSID- slots INCLUDEd in QMP-CONSID
+		     R-GRAPH R-GRAPH
+		     PREM-NODES (LIST Q-PREM-NODE S-PREM-NODE)
+		     CONCL-NODE RP-TGT-NODE ) ) )
+		 (CSR:INSTALL-CONSID-LINK NEW-CONSID)
+		 (PUSH NEW-CONSID NEW-CONSID-LINKS) ) )
+	  (T	    ;; partial success -- in this case we set up a GOAL-consid
+	     (LET* ((Q-PREM-NODE
+		     (CSR:UPDATE-R-GRAPH Q-PREM-CAND R-GRAPH 'KNOWLEDGE 'BASIS) )
+		    (S-PREM-QUERY
+		     (CSR:CREATE-BLF∨QRY QUERY
+			  FORMULA S-PREM-SENT
+			  F-DESCRIPTS `((LT-TYPE . ,S-PREM-LT-TYPE))
+			  WT-CNTXT (R-GRAPH-RB-CONTEXT R-GRAPH) ) )
+		    (S-PREM-NODE
+		     (CSR:UPDATE-R-GRAPH S-PREM-QUERY R-GRAPH 'TARGET 'FRONTIER))
+		    (NEW-CONSID
+		     (MAKE-QMP-CONSID
+		       Q-PREM-NODE Q-PREM-NODE
+		       S-PREM-NODE S-PREM-NODE
+		       ; the following are CONSID- slots INCLUDEd in QMP-CONSID
+		       R-GRAPH R-GRAPH
+		       PREM-NODES (LIST Q-PREM-NODE S-PREM-NODE)
+		       CONCL-NODE RP-TGT-NODE
+		       GOAL-NODES (NCONS S-PREM-NODE) ) ) )
+		   (CSR:INSTALL-CONSID-LINK NEW-CONSID)
+		   (PUSH NEW-CONSID NEW-CONSID-LINKS) ) ) ) ) )
+	     (NCONC KF-Q-PREM-CANDS RC-Q-PREM-CANDS) )
+	      ;; eventually, we'll want to eliminate any duplications
+	      ;;  in these two lists before NCONCing them.
+       (COND (NEW-CONSID-LINKS		;; returns a TRIAL-REPORT a-list.
+		`((TRIAL-RESULT . SUCCESS)
+		  (NUMBER-OF-NEW-CONSIDS . ,(LENGTH NEW-CONSID-LINKS)) ) )
+	     (T '((TRIAL-RESULT . FAILURE))) ) ) ) )
+
+(DEFUN STATIST-BM-PREDICATE1 (CONCL-EXPR)
+  (OR (AND (EQ 'ATOMICPROPO (LT-TYPE CONCL-EXPR))
+	   (= (LENGTH CONCL-EXPR) 2) )
+      (AND (EQ 'NEGPROPO (LT-TYPE CONCL-EXPR))
+	   (STATIST-BM-PREDICATE1 (CADR CONCL-EXPR)) ) ) )
+; This is just a temporary hack.  In general, this predicate should return
+;  T iff CONCL-EXPR contains some quantifiable individual term.
+
+(DEFUN STATIST-B-METHOD (RP-TGT-NODE)
+ (LET* ((CONCL-EXPR (QUERY-FORMULA (RP-NODE-CONTENT RP-TGT-NODE)))
+	 ;; conclusion expression
+	(R-GRAPH (RP-NODE-R-GRAPH RP-TGT-NODE))
+	(CONCL-LT-TYPE (LT-TYPE CONCL-EXPR))
+	(CONCL-SUBJ (CASEQ CONCL-LT-TYPE	;; this is just a temporary hack
+		      (ATOMICPROPO (CADR CONCL-EXPR))
+		      (NEGPROPO (CADADR CONCL-EXPR))
+		      (T 'PUNT NIL) ))
+	(Q-KERNEL-PATT (CASEQ CONCL-LT-TYPE
+			 (ATOMICPROPO  ;; unary case only
+			   (COND ((= (LENGTH CONCL-EXPR) 2)
+				    (LIST (CAR CONCL-EXPR) '?X) )
+				 (T 'PUNT NIL) ) )
+			 (NEGPROPO  ;; unary-atomic matrix only
+			  (COND ((AND (EQ 'ATOMICPROPO (LT-TYPE (CADR CONCL-EXPR)))
+				      (= 2 (LENGTH (CADR CONCL-EXPR))) )
+				   (LET (((NIL (PRED NIL)) CONCL-EXPR))
+					`(¬ (,PRED ?X)) ) )
+				(T 'PUNT NIL) ) )
+			 (T 'PUNT NIL) ) )
+	 ;; In general, one Q-KERNEL-PATT can be obtained for each different way
+	 ;;  of substituting '?X' for an individual term in CONCL-EXPR.  For
+	 ;;  large exprs, there will be many such ways, and some heuristic
+	 ;;  guidance will be needed to explore only the most promising of them.
+	(NEW-CONSID-LINKS) )
+       (MULTIPLE-VALUE-BIND (KF-STAT-PREM-CANDS RC-STAT-PREM-CANDS)
+	;; 	 knowledge-frontier beliefs, reasoning-context beliefs
+	;;  Both are lists of stat-premise candidates.  Eventually, we'll need to
+	;;   eliminate any possible duplications of beliefs in these two lists.
+	  (CSR:KNOWLEDGE-LOOKUP-ALL
+	    R-GRAPH
+	    #'(LAMBDA (*DAL*) 
+		(AND (EQ 'QUANTIFIERFORM (A-Q-GET *DAL* 'LT-TYPE))
+		     (EQ 'GREAT-MAJORITY (A-Q-GET *DAL* 'LT-DETERMINER))
+		     (EQ CONCL-LT-TYPE (A-Q-GET *DAL* 'LT-TYPE*Q-KERNEL)) ) )
+	    #'(LAMBDA (*SEN*) 
+		(AT-MATCH (LTI-Q-KERNEL *SEN*) Q-KERNEL-PATT) )
+	    #'(LAMBDA (*EPS*) 
+		(≥-BEL-LEVEL (EPIST-BEL-LEVEL *EPS*) 'VERY-LIKELY) ) )
+      (MAPC #'(LAMBDA (STAT-PREM-CAND)	;; a belief
+		(LET* ((STAT-PREM-SENT (BELIEF-FORMULA STAT-PREM-CAND))
+		       (QSORT-EXPR (LTI-QSORT-EXPR STAT-PREM-SENT))
+		       (S-PREM-SENT (LIST QSORT-EXPR CONCL-SUBJ))
+			;; this is not general; just a temporary hack
+		       (S-PREM-LT-TYPE (LT-TYPE S-PREM-SENT))
+		       (S-PREM-BELIEF
+	   ;; code too wide to indent properly
+	  (CSR:KNOWLEDGE-LOOKUP
+	    R-GRAPH
+	    #'(LAMBDA (*DAL*) 
+		(EQ S-PREM-LT-TYPE (A-Q-GET *DAL* 'LT-TYPE)) )
+	    #'(LAMBDA (*SEN*) 
+		(EQUAL *SEN* S-PREM-SENT) )
+	    #'(LAMBDA (*EPS*) 
+		(≥-BEL-LEVEL (EPIST-BEL-LEVEL *EPS*) 'VERY-LIKELY) ) ) ) )
+    ;; code too wide to indent properly
+    (COND (S-PREM-BELIEF	;; complete success
+	   (LET* ((STAT-PREM-NODE
+		   (CSR:UPDATE-R-GRAPH STAT-PREM-CAND R-GRAPH 'KNOWLEDGE 'BASIS) )
+		  (S-PREM-NODE
+		   (CSR:UPDATE-R-GRAPH S-PREM-BELIEF R-GRAPH 'KNOWLEDGE 'BASIS) )
+		  (NEW-CONSID
+		   (MAKE-STAT-CONSID
+		     STAT-PREM-NODE STAT-PREM-NODE
+		     S-PREM-NODE S-PREM-NODE
+		     ; the following are CONSID- slots INCLUDEd in STAT-CONSID
+		     R-GRAPH R-GRAPH
+		     PREM-NODES (LIST STAT-PREM-NODE S-PREM-NODE)
+		     CONCL-NODE RP-TGT-NODE ) ) )
+		 (CSR:INSTALL-CONSID-LINK NEW-CONSID)
+		 (PUSH NEW-CONSID NEW-CONSID-LINKS) ) )
+	  (T	    ;; partial success -- in this case we set up a GOAL-consid
+	     (LET* ((STAT-PREM-NODE
+		     (CSR:UPDATE-R-GRAPH STAT-PREM-CAND R-GRAPH 'KNOWLEDGE 'BASIS) )
+		    (S-PREM-QUERY
+		     (CSR:CREATE-BLF∨QRY QUERY
+			  FORMULA S-PREM-SENT
+			  F-DESCRIPTS `((LT-TYPE . ,S-PREM-LT-TYPE))
+			  WT-CNTXT (R-GRAPH-RB-CONTEXT R-GRAPH) ) )
+		    (S-PREM-NODE
+		     (CSR:UPDATE-R-GRAPH S-PREM-QUERY R-GRAPH 'TARGET 'FRONTIER))
+		    (NEW-CONSID
+		     (MAKE-STAT-CONSID
+		       STAT-PREM-NODE STAT-PREM-NODE
+		       S-PREM-NODE S-PREM-NODE
+		       ; the following are CONSID- slots INCLUDEd in STAT-CONSID
+		       R-GRAPH R-GRAPH
+		       PREM-NODES (LIST STAT-PREM-NODE S-PREM-NODE)
+		       CONCL-NODE RP-TGT-NODE
+		       GOAL-NODES (NCONS S-PREM-NODE) ) ) )
+		   (CSR:INSTALL-CONSID-LINK NEW-CONSID)
+		   (PUSH NEW-CONSID NEW-CONSID-LINKS) ) ) ) ) )
+	     (NCONC KF-STAT-PREM-CANDS RC-STAT-PREM-CANDS) )
+	      ;; eventually, we'll want to eliminate any duplications
+	      ;;  in these two lists before NCONCing them.
+       (COND (NEW-CONSID-LINKS		;; returns a TRIAL-REPORT a-list.
+		`((TRIAL-RESULT . SUCCESS)
+		  (NUMBER-OF-NEW-CONSIDS . ,(LENGTH NEW-CONSID-LINKS)) ) )
+	     (T '((TRIAL-RESULT . FAILURE))) ) ) ) )
+
+(SETQ *ALL-R-HEURISTIC-EXPERTS-LIST* (LIST
+
+(MAKE-REASONING-EXPERT
+	TYPE 'HEURISTIC-EXPERT
+	R∨H-NAME 'NORMAL-EVENT-CHAIN
+	DESCRIPTION ()
+	FORWARD-METHOD  ()
+	BACKWARD-METHOD ()
+	FM-PREDICATES ()
+	BM-PREDICATE () )
+;	MATCH-DESCRIPTIONS 
+;	 '((NORM-ADV-PATT ())   ;; mnemonic for: NORMality-ADVice PATTern
+;	   (PREM1-PATT ())    ;; mnemonic: PATTern for 1st PREMise-link in chain
+;	   (CONCL-PATT ()) ) ) ;; mnemonic for: CONCLusion-PATTern
+
+)) 	;; End of the heuristic-expert list
+;      Processes for Exploring and Displaying the Reasoning Graph
+
+(DECLARE (special |(| |)| |:  | | | |  | |--| |:| |: | |::| |->| | - | |.|
+		  IPC:ERRSET-FLAG PROMPT-STRING TERMINAL-TYPE *NOPOINT K DD
+		  IPC:HELP-VERBOSITY *WELCOMED-LIST* *IPC-PROGRAM-CMDS*
+		  CURRENTPOS *R-GRAPH* *TASK-RECORD* RGRAPH TASK-REC TASK-RECORD
+		  BASIS-KEY BASIS CURRENT-ITEM CURRENT-ITEM-PATH REPEAT-LIST
+		  RP-NODE-DISPLAY-DIRECTORY-PTR CONSID-DISPLAY-DIRECTORY-PTR
+		  RP-NODE-GOAL-DISPLAY-DIRECTORY-PTR
+		  CONSID-GOAL-DISPLAY-DIRECTORY-PTR RG-DISPLAY-LIST-PTR
+		  RG-FULL-DISPLAY-LIST-PTR RG-GOAL-DISPLAY-LIST-PTR
+		  RG-NORM-DISPLAY-LIST RG-NORM-FULL-DISPLAY-LIST
+		  RG-NORM-GOAL-DISPLAY-LIST RG-FULL-DISPLAY-MAX-LEVEL
+		  RG-DISPLAY-MAX-LEVEL RG-GOAL-DISPLAY-MAX-LEVEL CURRENT-TASK
+		  CURRENT-TASK-PATH CURRENT-TASK-NUMBER
+		  *PRINTING-RP-NODE-FIELDS* *PRINTING-CONSID-FIELDS*
+		  *PRINTING-TASK-FIELDS* *PRINTING-BLF∧EPIST-FIELDS* RPND-TALLY
+		  CNSD-TALLY GOAL-RPND-TALLY GOAL-CNSD-TALLY RLVT-CNSDS
+		  GOAL-RLVT-CNSDS PART-CNSDS GOAL-PART-CNSDS TABVAL1 TABVAL2
+		  IPC-HELP-TABLE XPRG-HELP-TABLE XPTR-HELP-TABLE )
+
+	 (*lexpr EXPLORE-R-GRAPH EXPLORE-TASK-RECORD DISPLAY-HELP-TABLE-ENTRY
+		 INTERACTIVE-PROGRAM-CONTROL GET-REASONING-GRAPH
+		 GET-TASK-RECORD DISPLAY-BLF∨QRY POSPRINC )
+
+	 (fixnum CURRENTPOS TABVAL LEVEL CURRENT-LEVEL CURRENT-TASK-NUMBER
+		 RG-DISPLAY-MAX-LEVEL RG-GOAL-DISPLAY-MAX-LEVEL
+		 RG-FULL-DISPLAY-MAX-LEVEL TABVAL1 TABVAL2 N-ARG
+		 LAST-CONSID-NAME-LENGTH RPND-TALLY CNSD-TALLY GOAL-RPND-TALLY
+		 GOAL-CNSD-TALLY SUCCESS-TALLY FAILURE-TALLY TALLY TAB-MULT
+		 T-NODE-TALLY K-NODE-TALLY ) )
+
+(SETQ *ALL-RP-NODE-FIELDS*
+		'(|r-graph| |type| |content| |rlvt-consids|
+			    |part-consids| |trav-list| )
+      *PRINTING-RP-NODE-FIELDS*
+		'(|type| |content| |rlvt-consids| |goal-rlvt-cs|
+			 |part-consids| |goal-part-cs| )
+      *ALL-CONSID-FIELDS* 
+		'(|r-graph| |type| |rule| |prem-nodes| |concl-node|
+		  |goal-nodes| |inher-rel-strength| |force| |trav-list| )
+      *PRINTING-CONSID-FIELDS* 
+		'(|type| |rule| |inher-rel-strength| |force|
+		  |premise-formulas| |conclusion-formula| |goal-formulas| )
+      *ALL-BELIEF-FIELDS* '(|type| |p-unit| |epistatus| |wt-cntxt|)
+      *PRINTING-BLF∧EPIST-FIELDS*
+		'(|type| |context| |formula| |f-descripts| |bel-level|
+			 |bl-grounds| |bel-firmness| |bf-grounds| )
+      *ALL-TASK-FIELDS* '(|effort| |priority| |description| |r-expert|
+				   |method| |arguments| |trial-report| )
+      *PRINTING-TASK-FIELDS* '(|r-expert| |description| |argument-wff| |method|
+					  |trial-report| |priority| |effort| )
+      *IPC-PROGRAM-CMDS* '(XTR XRG DEM)
+      |--| '|--|  |:| '|:| |: | '|: | |::| '|::| |->| '|->| |.| '|.|
+      |(| '|(| |)| '|)| |:  | '|:  | K 'K DD 'DD IPC:ERRSET-FLAG NIL
+      IPC:HELP-VERBOSITY 'VERBOSE )
+
+(DEFUN GET-YES-OR-NO ()
+  (PROG (ANSWER)
+     R  (SETQ ANSWER (READ))
+	(COND ((MEMQ ANSWER '(Y YES)) (RETURN T))
+	      ((MEMQ ANSWER '(N NO)) (RETURN NIL))
+	      (T (WRITE T "please answer Y or N ...  ") (GO R)) ) ) )
+
+(DEFMACRO TRANSFER-CHECK (CMD-ATOM)
+ `(COND ((MEMQ ,CMD-ATOM *IPC-PROGRAM-CMDS*)
+	   (SETQ *NOPOINT NIL)  (RETURN COMMAND) )
+	(T NIL) ) )
+
+(DEFMACRO R-GRAPH-CHECK (CMD-ATOM)
+ `(COND ((OR (AND (BOUNDP '*R-GRAPH*) *R-GRAPH*)
+	     (MEMQ ,CMD-ATOM '(GRG ? H ?? HH HELP Q QUIT)) ))
+	(T (WRITE T
+	      "There is no current reasoning-graph; you may use GRG to get one."
+		  T '| -- please try again ...| )
+	   (GO A) ) ) )
+
+(DEFUN XPRG (&optional R-GRAPH (BASIS-KEY 'T))
+  (EXPLORE-R-GRAPH R-GRAPH BASIS-KEY) )
+
+;; The global variables *R-GRAPH*, CURRENT-ITEM, CURRENT-ITEM-PATH, 
+;;  RP-NODE-DISPLAY-DIRECTORY-PTR, CONSID-DISPLAY-DIRECTORY-PTR,
+;;  RP-NODE-GOAL-DISPLAY-DIRECTORY-PTR, CONSID-GOAL-DISPLAY-DIRECTORY-PTR,
+;;  RG-GOAL-DISPLAY-MAX-LEVEL, RG-FULL-DISPLAY-MAX-LEVEL,
+;;  RG-DISPLAY-LIST-PTR, RG-NORM-DISPLAY-LIST, RG-DISPLAY-MAX-LEVEL,
+;;  RG-GOAL-DISPLAY-LIST-PTR, RG-NORM-GOAL-DISPLAY-LIST,
+;;  RG-FULL-DISPLAY-LIST-PTR  RG-NORM-FULL-DISPLAY-LIST,
+;;  RLVT-CNSDS, GOAL-RLVT-CNSDS, PART-CNSDS, GOAL-PART-CNSDS,
+;;  (the following 4 variables are used freely by r-graph summarizing processes)
+;;  RPND-TALLY, CNSD-TALLY, GOAL-RPND-TALLY, GOAL-CNSD-TALLY,
+;;  are used freely by EXPLORE-R-GRAPH and several subsidiary functions.
+;;  These variables were made global in order to permit preservation of the
+;;  state of the program between calls of EXPLORE-R-GRAPH.
+(DEFUN EXPLORE-R-GRAPH (&optional R-GRAPH (BASIS-KEY 'T))
+  (PROG (BASIS PROMPT-STRING COMMAND)
+	(SETQ *NOPOINT T   PROMPT-STRING 'RG**)
+	(OR (BOUNDP '*R-GRAPH*) (GET-REASONING-GRAPH R-GRAPH 'INIT-CALL))
+	(COND ((MEMQ 'XRG *WELCOMED-LIST*) (WRITE T 'EXPLORE-REASONING-GRAPH |.|))
+	      (T (PUSH 'XRG *WELCOMED-LIST*)
+		 (WRITE T "Welcome to EXPLORE-REASONING-GRAPH." T
+;; line too wide to indent fully
+"This program permits convenient examination of commonsense reasoning graphs"
+			T "constructed by CSR:INVESTIGATE-FROM-MEMORY."
+			T "Please type commands to the prompt RG**." ) ) )
+	(COND ((AND (BOUNDP '*R-GRAPH*)
+		    (BOUNDP 'RGRAPH)
+		    (NOT (EQ *R-GRAPH* RGRAPH)) )
+		 (WRITE T "A new reasoning-graph exists;  shall we get it?  ")
+		 (COND ((GET-YES-OR-NO) (GET-REASONING-GRAPH RGRAPH))) ))
+     A  (SETQ COMMAND (GET-XPDN-COMMAND))
+	(COND ((SYMBOLP COMMAND)
+		 (TRANSFER-CHECK COMMAND)
+		 (R-GRAPH-CHECK COMMAND) )
+	      ((AND (CONSP COMMAND)
+		    (SYMBOLP (CAR COMMAND))
+		    (ALL (CDR COMMAND)
+			 #'(LAMBDA (ARG) (OR (FIXP ARG) (SYMBOLP ARG))) ) )
+		 (TRANSFER-CHECK (CAR COMMAND))
+		 (R-GRAPH-CHECK (CAR COMMAND)) )
+	      (T (WRITE T
+		    '| - improper command or argument -- please try again ...| )
+		 (GO A) ) )
+	(OR (ERRSET
+	 (CASEQ (COND ((SYMBOLP COMMAND) COMMAND) (T (CAR COMMAND)))
+	    (GRG (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	     ;; Get Reasoning Graph
+			   ;; missing argument defaults to R-GRAPH.
+			  (GET-REASONING-GRAPH R-GRAPH) )
+		       (T (GET-REASONING-GRAPH (SYMEVAL (CADR COMMAND)))) ))
+	    (DS (CSR:DISPLAY-RG-SUMMARY *R-GRAPH* 'COMPLETED))
+	     ;; Display reasoning-graph Summary
+	    (DGS (CSR:DISPLAY-RG-SUMMARY *R-GRAPH* 'GOAL))
+	     ;; Display reasoning-graph Goal-Summary
+	    (DFS (CSR:DISPLAY-RG-SUMMARY *R-GRAPH* 'FULL))
+	     ;; Display Full reasoning-graph Summary
+	    ((I MI) (MOVE-TO-NEW-ITEM 'SPEC (CDR COMMAND)))
+	     ;; Move to the Item specified (by its display-directory name)
+	    (DI (DISPLAY-CURRENT-ITEM))
+	     ;;  Display current Item
+	    ((RC MRC) (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	     ;; Move to Relevant-Consideration
+				;; missing argument defaults to 1.
+			       (MOVE-TO-NEW-ITEM 'RLVT (NCONS 1)) )
+			    (T (MOVE-TO-NEW-ITEM 'RLVT (CDR COMMAND))) ))
+	    ((PC MPC) (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	     ;; Move to Participated-Consideration
+				;; missing argument defaults to 1.
+			       (MOVE-TO-NEW-ITEM 'PART (NCONS 1)) )
+			    (T (MOVE-TO-NEW-ITEM 'PART (CDR COMMAND))) ))
+	    ((GRC MGRC) (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	     ;; Move to Goal-Relevant-Consideration
+				;; missing argument defaults to 1.
+			       (MOVE-TO-NEW-ITEM 'GOAL-RLVT (NCONS 1)) )
+			    (T (MOVE-TO-NEW-ITEM 'GOAL-RLVT (CDR COMMAND))) ))
+	    ((GPC MGPC) (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	     ;; Move to Goal-Participated-Consideration
+				;; missing argument defaults to 1.
+			       (MOVE-TO-NEW-ITEM 'GOAL-PART (NCONS 1)) )
+			    (T (MOVE-TO-NEW-ITEM 'GOAL-PART (CDR COMMAND))) ))
+	    (MN (MOVE-TO-NEW-ITEM 'NEG (NCONS 1)))
+	     ;; Move to Negation-rp-node (of rp-node)
+	    (MP (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	     ;; Move to Premise-rp-node
+			  ;; missing argument defaults to 1.
+			 (MOVE-TO-NEW-ITEM 'PREM (NCONS 1)) )
+		      (T (MOVE-TO-NEW-ITEM 'PREM (CDR COMMAND))) ))
+	    (MC (MOVE-TO-NEW-ITEM 'CONCL (NCONS 1)))
+	     ;; Move to Conclusion-rp-node
+	    (ID (IDENTIFY-ITEM CURRENT-ITEM))
+	     ;; IDentify current item
+	    (CI (COUNT-ITEMS *R-GRAPH*))
+	     ;; Count Items
+	    (CNC (COUNT-NEGATION-CONSIDS *R-GRAPH*))
+	     ;; Count Negation-Consids
+	    ((Q QUIT EXIT) (SETQ *NOPOINT NIL) (RETURN COMMAND))
+	    ((? H) (XPRG-SHORT-HELP (COND ((ATOM COMMAND) NIL)
+					  (T (CDR COMMAND)) )))
+	    ((?? HH HELP) (XPRG-HELP (COND ((ATOM COMMAND) NIL)
+					   (T (CDR COMMAND)) )))
+	    (T (WRITE T '| - unrecognized command| '| -- please try again ...|)) )
+	 IPC:ERRSET-FLAG )
+	    (WRITE T '| - bad command//argument combination|
+		     '| -- please try again ...| ) )
+	(GO A) ) )
+
+(DEFUN GET-REASONING-GRAPH (R-GRPH &optional INIT-CALL-FLAG)
+ (*CATCH 'GET-RG
+  (OR R-GRPH
+      (COND ((AND (BOUNDP 'RGRAPH) RGRAPH)
+	       (SETQ R-GRPH RGRAPH) )
+	    (INIT-CALL-FLAG (*THROW 'GET-RG NIL))
+	    (T (WRITE T " - no reasoning graph has been specified"
+			'| -- please try again ...| )
+	       (*THROW 'GET-RG NIL) ) ) )
+  (SETQ *R-GRAPH* R-GRPH
+	BASIS (REVERSE (CASEQ BASIS-KEY (T (R-GRAPH-T-BASIS *R-GRAPH*))
+			      (K (R-GRAPH-K-BASIS *R-GRAPH*)) ))
+	CURRENT-ITEM (CAR BASIS)
+	CURRENT-ITEM-PATH (NCONS CURRENT-ITEM)
+	RP-NODE-DISPLAY-DIRECTORY-PTR (NCONS NIL)
+	RP-NODE-GOAL-DISPLAY-DIRECTORY-PTR (NCONS NIL)
+	CONSID-DISPLAY-DIRECTORY-PTR (NCONS NIL)
+	CONSID-GOAL-DISPLAY-DIRECTORY-PTR (NCONS NIL)
+	RG-DISPLAY-LIST-PTR (NCONS NIL)
+	RG-GOAL-DISPLAY-LIST-PTR (NCONS NIL)
+	RG-FULL-DISPLAY-LIST-PTR (NCONS NIL)
+	RG-NORM-DISPLAY-LIST NIL
+	RG-NORM-GOAL-DISPLAY-LIST NIL   RG-NORM-FULL-DISPLAY-LIST NIL
+	RG-DISPLAY-MAX-LEVEL 0  RG-GOAL-DISPLAY-MAX-LEVEL 0
+	RG-FULL-DISPLAY-MAX-LEVEL 0
+	RPND-TALLY 0  CNSD-TALLY 0  GOAL-RPND-TALLY 0  GOAL-CNSD-TALLY 0 )
+  (CSR:SUMMARIZE-R-GRAPH *R-GRAPH* 'COMPLETED)
+  (CSR:SUMMARIZE-R-GRAPH *R-GRAPH* 'FULL)
+  (CSR:SUMMARIZE-R-GRAPH *R-GRAPH* 'GOAL) ) )
+
+(DEFUN COUNT-ITEMS (R-GRAPH &aux (CURRENTPOS 1))
+  (LET ((T-NODE-TALLY (LENGTH (R-GRAPH-T-DIRECTORY R-GRAPH)))
+	(K-NODE-TALLY (LENGTH (R-GRAPH-K-DIRECTORY R-GRAPH)))
+	(ORDINARY-CONSIDS (SUBSET (R-GRAPH-CONSID-LIST R-GRAPH)
+				  #'(LAMBDA (CNSD)
+				      (EQ 'ORDINARY-CONSID (CONSID-TYPE CNSD)) ) )) )
+   (MULTIPLE-VALUE-BIND (COMPLETE-CONSIDS GOAL-CONSIDS)
+			(CSR:CLASSIFY-CONSIDS ORDINARY-CONSIDS)
+     (WRITE T "In this r-graph there are " T-NODE-TALLY " target rp-nodes, "
+	    "(i.e., " (// T-NODE-TALLY 2.) " trpns + their negations),"
+	    T (TAB 3.) K-NODE-TALLY " previously known rp-nodes, " 
+	    (LENGTH COMPLETE-CONSIDS) " completed ordinary-considerations,"
+	    T (SETQ CURRENTPOS 1) (TAB 3.) "and " (LENGTH GOAL-CONSIDS)
+	    " uncompleted (i.e., goal) ordinary-considerations." ) ) ) )
+
+(DEFUN COUNT-NEGATION-CONSIDS (R-GRAPH &aux (CURRENTPOS 1))
+  (LET ((NEGATION-CONSIDS (SUBSET (R-GRAPH-CONSID-LIST R-GRAPH)
+				  #'(LAMBDA (CNSD)
+				      (EQ 'NEGATION-CONSID (CONSID-TYPE CNSD)) ) )) )
+   (MULTIPLE-VALUE-BIND (COMPLETE-CONSIDS GOAL-CONSIDS)
+			(CSR:CLASSIFY-CONSIDS NEGATION-CONSIDS)
+     (WRITE T "In this r-graph there are " 
+	    (LENGTH COMPLETE-CONSIDS) " completed negation-considerations,"
+	    T (TAB 3.) "and " (LENGTH GOAL-CONSIDS)
+	    " uncompleted (i.e., goal) negation-considerations." ) ) ) )
+
+(DEFUN DISPLAY-CURRENT-ITEM ()
+ (LET ((TYPE (CAR CURRENT-ITEM)))
+      (COND ((MEMQ TYPE '(ORDINARY-CONSID NEGATION-CONSID))
+	       (DISPLAY-CONSID CURRENT-ITEM) )
+	    (T (DISPLAY-RP-NODE CURRENT-ITEM)) ) ) )
+
+(DEFMACRO MTNI-BAD-ARG-EXIT ()
+ `(PROGN (WRITE T '| - bad argument| '| -- please try again ...|)
+	 (*THROW 'MTNI NIL) ) )
+
+(DEFUN MOVE-TO-NEW-ITEM (KEY ARGLIST &aux (ARG (CAR ARGLIST)))
+ (*CATCH 'MTNI
+  (COND ((EQ 'SPEC KEY)
+	   (LET ((DISPLAY-DIRECTORY
+		   (CASEQ (GETCHAR ARG 1)
+		     (P (CAR RP-NODE-DISPLAY-DIRECTORY-PTR))
+		     (C (CAR CONSID-DISPLAY-DIRECTORY-PTR))
+		     (G (CASEQ (GETCHAR ARG 2)
+			  (P (CAR RP-NODE-GOAL-DISPLAY-DIRECTORY-PTR))
+			  (C (CAR CONSID-GOAL-DISPLAY-DIRECTORY-PTR))
+			  (T (MTNI-BAD-ARG-EXIT)) ))
+		     (T (MTNI-BAD-ARG-EXIT)) ) ))
+		(SETQ CURRENT-ITEM (A-Q-GET DISPLAY-DIRECTORY ARG)) ) )
+	(T (SETQ ARG (1- ARG)
+ ; The specvars RLVT-CNSDS, GOAL-RLVT-CNSDS, PART-CNSDS, and GOAL-PART-CNSDS
+ ;  are assumed to have been set during the previous call to CSR:DISPLAY-RP-NODE.
+		 CURRENT-ITEM
+		   (NTH ARG (CASEQ KEY
+			      (RLVT RLVT-CNSDS)
+			      (GOAL-RLVT GOAL-RLVT-CNSDS)
+			      (PART PART-CNSDS)
+			      (GOAL-PART GOAL-PART-CNSDS)
+			      (NEG `(,(RP-NODE-NEGATION CURRENT-ITEM)))
+			      (PREM (CONSID-PREM-NODES CURRENT-ITEM))
+			      (CONCL `(,(CONSID-CONCL-NODE CURRENT-ITEM))) )) )) )
+  (DISPLAY-CURRENT-ITEM) ) )
+
+(DEFMACRO DISPLAY-B∨Q∧EPIST-FIELDS (BLF∨QRY POS)
+ `(LET ((BLF∨QRY ,BLF∨QRY)
+	(POS ,POS)
+	(B∨Q-F-ATOM1 (CAR *PRINTING-BLF∧EPIST-FIELDS*)) )
+       (SETQ TABVAL (- POS (FLATC B∨Q-F-ATOM1)))
+       (WRITE (TAB TABVAL) B∨Q-F-ATOM1 |:  |
+	      (B∨Q∧EPIST-FIELD-CONTENTS B∨Q-F-ATOM1 BLF∨QRY) )
+       (MAPC #'(LAMBDA (B∨Q-F-ATOM)
+		 (SETQ CURRENTPOS 1
+		       TABVAL (- POS (FLATC B∨Q-F-ATOM)) )
+		 (WRITE T (TAB TABVAL) B∨Q-F-ATOM |:  |)
+		 (COND ((EQ '|bl-grounds| B∨Q-F-ATOM)
+			(SETQ CURRENTPOS (+ CURRENTPOS  3. (FLATC B∨Q-F-ATOM)))
+			(DISPLAY-RPN-BLF-GROUNDS
+			    (B∨Q∧EPIST-FIELD-CONTENTS B∨Q-F-ATOM BLF∨QRY) ) )
+		       ((EQ '|bf-grounds| B∨Q-F-ATOM)
+			(SETQ CURRENTPOS (+ CURRENTPOS  3. (FLATC B∨Q-F-ATOM)))
+			(DISPLAY-RPN-BLF-GROUNDS
+			    (B∨Q∧EPIST-FIELD-CONTENTS B∨Q-F-ATOM BLF∨QRY) ) )
+		       ((EQ '|f-descripts| B∨Q-F-ATOM)
+			  (SETQ SURRENTPOS (+ CURRENTPOS  3. (FLATC B∨Q-F-ATOM)))
+			  (DISPLAY-B∨Q-F-DESCRIPTS
+			     (B∨Q∧EPIST-FIELD-CONTENTS B∨Q-F-ATOM BLF∨QRY) ) )
+		       (T (LET ((CONTENTS
+				  (B∨Q∧EPIST-FIELD-CONTENTS B∨Q-F-ATOM BLF∨QRY) ))
+			       (COND (CONTENTS (PRINC CONTENTS))) )) ) )
+	     (CDR *PRINTING-BLF∧EPIST-FIELDS*) ) ) )
+
+(DEFMACRO DISPLAY-RPN-CONSIDS (CONSID-LIST KEY-ATOM)
+ `(LET* ((CONSID-TALLY 0)
+	 (IMP-LIST (CASEQ ,KEY-ATOM
+		     (|rlvt-consids| '(R C))
+		     (|part-consids| '(P C))
+		     (|goal-rlvt-cs| '(G R C))
+		     (|goal-part-cs| '(G P C))
+		     (T ,KEY-ATOM) ))
+	 (CNSD-NAMES
+	   (MAPCAR #'(LAMBDA (CNSD)
+		       (SETF* CONSID-TALLY (1+ -*-))
+		       (COND ((OR (RA-Q-GET (CAR CONSID-DISPLAY-DIRECTORY-PTR)
+					    CNSD )
+				  (RA-Q-GET (CAR CONSID-GOAL-DISPLAY-DIRECTORY-PTR)
+					    CNSD ) ))
+			     (T (IMPLODE (APPEND IMP-LIST
+						 (EXPLODE CONSID-TALLY) ))) ) )
+		   ,CONSID-LIST )) )
+	(COND (CNSD-NAMES (PRINC CNSD-NAMES))
+	      ((AND IMP-LIST (SYMBOLP IMP-LIST))
+	         (PRINC IMP-LIST) ) ) ) )
+
+(DEFUN DISPLAY-B∨Q-F-DESCRIPTS (DESCR-LIST &aux (TABVAL (1+ CURRENTPOS)))
+ (COND ((NULL DESCR-LIST))
+       ((CONSP DESCR-LIST)
+	  (PRINC |(|)
+	  (SETQ CURRENTPOS TABVAL)
+	  (DO ((D-TAIL DESCR-LIST (CDR D-TAIL)))
+	      ((NULL D-TAIL) (PRINC |)|) T)
+	      (TAB TABVAL)
+	      (PRINC (CAR D-TAIL))
+	      (COND ((CDR D-TAIL) (TERPRI) (SETQ CURRENTPOS 1))) ) )
+       (T (PRINC DESCR-LIST)) ) )
+
+(DEFMACRO CSR:GET-RG-ITEM-DISPLAY-NAME (ITEM NODE-FLAG)
+  `(COND (,NODE-FLAG
+	    (OR (RA-Q-GET (CAR RP-NODE-DISPLAY-DIRECTORY-PTR) ,ITEM)
+		(RA-Q-GET (CAR RP-NODE-GOAL-DISPLAY-DIRECTORY-PTR) ,ITEM ) ))
+	 (T (OR (RA-Q-GET (CAR CONSID-DISPLAY-DIRECTORY-PTR) ,ITEM)
+		(RA-Q-GET (CAR CONSID-GOAL-DISPLAY-DIRECTORY-PTR) ,ITEM) )) ) )
+
+(DEFUN IDENTIFY-ITEM (ITEM &aux (NODE-FLAG (ISA-RP-NODE ITEM)))
+ (LET ((ITEM-TYPE (COND (NODE-FLAG '|rp-node|) (T "consideration")))
+       (ITEM-NAME (CSR:GET-RG-ITEM-DISPLAY-NAME ITEM NODE-FLAG))
+       (ARTICLE "the ") AUX-PHRASE )
+      (COND ((AND (NULL ITEM-NAME)
+		  NODE-FLAG
+		  (SETQ ITEM-NAME (CSR:GET-RG-ITEM-DISPLAY-NAME
+				    (RP-NODE-NEGATION ITEM) NODE-FLAG )) )
+	       (SETQ AUX-PHRASE "the NEGATION of "
+		     ARTICLE NIL ) ))
+      (COND ((AND (NULL ITEM-NAME)
+		  (NULL NODE-FLAG)
+		  (SETQ ITEM-NAME (CSR:GET-RG-ITEM-DISPLAY-NAME
+				    (CONSID-CONCL-NODE ITEM) 'T )) )
+	       (SETQ AUX-PHRASE (COND ((CONSID-GOAL-NODES ITEM)
+				         "a GOAL-RLVT-CONSID of " )
+				      (T "a RLVT-CONSID of ") )
+		     ARTICLE NIL
+		     ITEM-TYPE '|rp-node| ) ))
+      (COND (ITEM-NAME
+; line to wide to indent
+(WRITE T "You are currently located at " (IF* . AUX-PHRASE) (IF* . ARTICLE)
+	  ITEM-TYPE | | ITEM-NAME '|.| ) )
+	    (T 
+; line to wide to indent
+(WRITE T "There is no display name for the current " ITEM-TYPE '|.|) )) ) )
+
+(DEFUN DISPLAY-RP-NODE (NODE &aux (RP-NODE-FIELDS *PRINTING-RP-NODE-FIELDS*)
+				 (CURRENTPOS 1.) (TABVAL 0) NODE-NAME )
+ (MULTIPLE-VALUE (RLVT-CNSDS GOAL-RLVT-CNSDS)
+   (CSR:CLASSIFY-CONSIDS (RP-NODE-RLVT-CONSIDS NODE)) )
+ (MULTIPLE-VALUE (PART-CNSDS GOAL-PART-CNSDS)
+   (CSR:CLASSIFY-CONSIDS (RP-NODE-PART-CONSIDS NODE)) )
+ (SETQ NODE-NAME (CSR:GET-RG-ITEM-DISPLAY-NAME NODE 'T))
+ (COND ((NULL NODE-NAME)
+	  (LET ((NEG-NAME (CSR:GET-RG-ITEM-DISPLAY-NAME (RP-NODE-NEGATION NODE)
+							'T )))
+	       (COND (NEG-NAME (SETQ NODE-NAME `(|Negation| ,NEG-NAME)))) ) ))
+ (COND (NODE-NAME
+	  (WRITE T T (TAB 6.) '|Reasoning-proposition Node| | | NODE-NAME T )
+	  (COND ((EQ 'DD TERMINAL-TYPE) (TERPRI))) )
+       (T (WRITE T T (TAB 8.) '|Reasoning-proposition Node| T)
+	  (COND ((EQ 'DD TERMINAL-TYPE) (TERPRI))) ) )
+ (MAPC #'(LAMBDA (RPNF-ATOM)
+	   (SETQ CURRENTPOS 1
+		 TABVAL (- 13. (FLATC RPNF-ATOM)) )
+	   (WRITE T (TAB TABVAL) RPNF-ATOM |:  |)
+	   (COND ((EQ '|content| RPNF-ATOM)
+		    (SETQ CURRENTPOS (+ CURRENTPOS  3. (FLATC RPNF-ATOM)))
+		    (DISPLAY-B∨Q∧EPIST-FIELDS (RP-NODE-CONTENT NODE) 20.) )
+		 ((MEMQ RPNF-ATOM '(|rlvt-consids| |goal-rlvt-cs|
+				    |part-consids| |goal-part-cs| ))
+		    (SETQ CURRENTPOS (+ CURRENTPOS  3. (FLATC RPNF-ATOM)))
+		    (DISPLAY-RPN-CONSIDS (CASEQ RPNF-ATOM
+					   (|rlvt-consids| RLVT-CNSDS)
+					   (|goal-rlvt-cs| GOAL-RLVT-CNSDS)
+					   (|part-consids| PART-CNSDS)
+					   (|goal-part-cs| GOAL-PART-CNSDS) )
+					 RPNF-ATOM )
+		    (TERPRI) )
+		 (T (LET ((CONTENTS (RPN-FIELD-CONTENTS RPNF-ATOM NODE)))
+			 (COND (CONTENTS (PRINC CONTENTS))) )) ) )
+       RP-NODE-FIELDS )
+ T )
+
+(DEFUN CSR:CLASSIFY-CONSIDS (CONSID-LIST &aux (REG-CNSDS-PTR (NCONS NIL))
+					      (GOAL-CNSDS-PTR (NCONS NIL)) )
+  (MAPC #'(LAMBDA (CONSID)
+	    (COND ((CONSID-GOAL-NODES CONSID)
+		     (TCONC CONSID GOAL-CNSDS-PTR) )
+		  (T (TCONC CONSID REG-CNSDS-PTR)) ) )
+	CONSID-LIST )
+  (VALUES (CAR REG-CNSDS-PTR) (CAR GOAL-CNSDS-PTR)) )
+
+; an alternative definition
+;(DEFUN CSR:CLASSIFY-CONSIDS (CONSID-LIST)
+; (DO ((CNSD-TAIL CONSID-LIST (CDR CNSD-TAIL))
+;      (RLVT-CNSDS NIL) (GOAL-RLVT-CNSDS NIL) )
+;     ((NULL CNSD-TAIL)
+;	(VALUES (NREVERSE RLVT-CNSDS) (NREVERSE GOAL-RLVT-CNSDS)) )
+;     (SETQ CONSID (CAR CNSD-TAIL))
+;     (COND ((CONSID-GOAL-NODES CONSID)
+;	       (PUSH CONSID GOAL-RLVT-CNSDS) )
+;	    (T (PUSH CONSID RLVT-CNSDS)) ) )
+
+(DEFUN DISPLAY-RPN-BLF-GROUNDS (GROUNDS-LIST)
+ (COND ((NULL GROUNDS-LIST))
+       ((CONSP GROUNDS-LIST)
+	  (PRINC |(|)
+	  (MAPC #'(LAMBDA (GROUND)
+		    (LET ((KEY (CASEQ (CAR GROUND)
+				 (RLVT-CONSIDS '|rlvt-consids|)
+				 (PART-CONSIDS '|part-consids|)
+				 (GOAL-RLVT-CONSIDS '|goal-rlvt-cs|)
+				 (GOAL-PART-CONSIDS '|goal-part-cs|)
+				 (T (COND ((AND (SYMBOLP (CADR GROUND))
+						(CADR GROUND) )
+					     (PROG1 (CADR GROUND)
+						    (SETQ GROUND
+							  (NCONS (CAR GROUND)) ) ) )
+					  (T
+			 ;; line too wide to indent fully
+			(BREAK |DISPLAY-RPN-BLF-GROUNDS - unrecognized ground|)) )))))
+			 (WRITE |(| (CAR GROUND) | |
+				(DISPLAY-RPN-CONSIDS (CDR GROUND) KEY) |)| ) ) )
+		GROUNDS-LIST )
+	  (PRINC |)|) )
+       (T (PRINC GROUNDS-LIST)) ) )
+
+(DEFUN DNW (RP-NODE-LIST)
+  (DISPLAY-RP-NODE-WFFS RP-NODE-LIST) )
+
+(DEFUN DISPLAY-RP-NODE-WFFS (RP-NODE-LIST)
+  (MAPC #'(LAMBDA (RP-NODE) (WRITE T (RP-NODE-FORMULA  RP-NODE)))
+	RP-NODE-LIST )  T )
+
+(DEFUN DBQ (BLF∨QRY)
+  (DISPLAY-BLF∨QRY BLF∨QRY) )
+
+(DEFUN DISPLAY-BLF∨QRY (BLF∨QRY &optional (VERBOSITY 'V)
+				&aux (CURRENTPOS 1.) (TABVAL 0)
+				     (TYPE (BELIEF-TYPE BLF∨QRY)) )
+  (CASEQ TYPE (QUERY (WRITE T T (TAB 13.) "Query:" T))
+	      (T (WRITE T T (TAB 12.) "Belief:" T)) )
+  (COND ((EQ 'V VERBOSITY) (TERPRI) (TERPRI)))
+  (SETQ CURRENTPOS 1)
+  (DISPLAY-B∨Q∧EPIST-FIELDS BLF∨QRY 13.)
+  'T )
+
+(DEFUN B∨Q∧EPIST-FIELD-CONTENTS (B∨Q-F-ATOM BLF∨QRY)
+  (CASEQ B∨Q-F-ATOM
+    (|type| (BELIEF-TYPE BLF∨QRY))
+    (|context| (LET ((WT-CNTXT (BELIEF-WT-CNTXT BLF∨QRY)))
+		    (COND ((EQ -ALLWORLDS- WT-CNTXT) '-ALLWORLDS-)
+			  ((EQ -NATURE- WT-CNTXT) '-NATURE-)
+			  ((EQ -REALWORLD- WT-CNTXT) '-REALWORLD-)
+			  ((EQ -CONTEXT- WT-CNTXT) '-CONTEXT-)
+			  ((EQ -CONTEXT:GLOBAL- WT-CNTXT) '-CONTEXT:GLOBAL-)
+			  (T '|<a local context>|) ) ))
+    (|formula| (GET (BELIEF-P-UNIT BLF∨QRY) 'FORMULA))
+    (|f-descripts| (GET (BELIEF-P-UNIT BLF∨QRY) 'F-DESCRIPTS))
+    (|bel-level| (EPIST-BEL-LEVEL (BELIEF-EPISTATUS BLF∨QRY)))
+    (|bl-grounds| (EPIST-BL-GROUNDS (BELIEF-EPISTATUS BLF∨QRY)))
+    (|bel-firmness| (EPIST-BEL-FIRMNESS (BELIEF-EPISTATUS BLF∨QRY)))
+    (|bf-grounds| (EPIST-BF-GROUNDS (BELIEF-EPISTATUS BLF∨QRY)))
+    (T (BREAK |B∨Q∧EPIST-FIELD-CONTENTS - unrecognized blf∨qry-field atom|)) ) )
+
+(DEFUN RPN-FIELD-CONTENTS (RPNF-ATOM NODE)
+  (CASEQ RPNF-ATOM
+    (|r-graph| (RP-NODE-R-GRAPH NODE))
+    (|type| (RP-NODE-TYPE NODE))
+    (|content| (RP-NODE-CONTENT NODE))
+    (|rlvt-consids| (RP-NODE-RLVT-CONSIDS NODE))
+    (|part-consids| (RP-NODE-PART-CONSIDS NODE))
+    (|trav-list| (RP-NODE-TRAV-LIST NODE))
+    (T (BREAK |RPN-FIELD-CONTENTS - unrecognized rp-node-field atom|)) ) )
+
+(DEFMACRO DISPLAY-CONSID-P∨G-WFFS (CNSD KEY)
+ `(LET ((PREM-WFFS (MAPCAR #'(LAMBDA (PREM-NODE)
+			       (BELIEF-FORMULA (RP-NODE-CONTENT PREM-NODE)) )
+			   (CASEQ ,KEY
+			     (|premise-formulas| (CONSID-PREM-NODES ,CNSD))
+			     (|goal-formulas| (CONSID-GOAL-NODES ,CNSD)) ) ))
+	(SAVE-POS CURRENTPOS) )
+       (MAPC #'(LAMBDA (PREM-WFF)
+		 (WRITE (TAB SAVE-POS) PREM-WFF T)
+		 (SETQ CURRENTPOS 1.) )
+	     PREM-WFFS ) ) )
+
+(DEFUN DISPLAY-CONSID (CNSD &aux (CONSID-FIELDS *PRINTING-CONSID-FIELDS*)
+				 (CURRENTPOS 1) (TABVAL 0) CNSD-NAME )
+ (SETQ CNSD-NAME (OR (RA-Q-GET (CAR CONSID-DISPLAY-DIRECTORY-PTR) CNSD)
+		     (RA-Q-GET (CAR CONSID-GOAL-DISPLAY-DIRECTORY-PTR) CNSD) ))
+ (COND ((NULL CNSD-NAME)
+	  (LET ((NODE-NAME (CSR:GET-RG-ITEM-DISPLAY-NAME
+			      (CONSID-CONCL-NODE CNSD) 'T )))
+	       (COND (NODE-NAME
+		        (SETQ CNSD-NAME
+			        (COND ((CONSID-GOAL-NODES CNSD)
+				         `(|GOAL-RLVT-Consid| ,NODE-NAME) )
+				      (T `(|RLVT-Consid| ,NODE-NAME)) ) ) ))) ))
+ (COND (CNSD-NAME
+	  (WRITE T T (TAB 12.) '|Reasoning-consideration Link| | |
+		 CNSD-NAME T T ) )
+       (T (WRITE T T (TAB 14.) '|Reasoning-consideration Link| T T)) )
+ (MAPC #'(LAMBDA (CF-ATOM)
+	   (SETQ CURRENTPOS 1
+		 TABVAL (- 20. (FLATC CF-ATOM)) )
+	   (WRITE T (TAB TABVAL) CF-ATOM |:  |)
+	   (COND ((EQ '|premise-formulas| CF-ATOM)
+		    (SETQ CURRENTPOS (+ CURRENTPOS 19.))
+		    (DISPLAY-CONSID-P∨G-WFFS CNSD CF-ATOM) )
+		 ((EQ '|goal-formulas| CF-ATOM)
+		    (SETQ CURRENTPOS (+ CURRENTPOS 3. (FLATC CF-ATOM)))
+		    (DISPLAY-CONSID-P∨G-WFFS CNSD CF-ATOM) )
+		 (T (LET ((CONTENTS (C-FIELD-CONTENTS CF-ATOM CNSD)))
+			 (COND (CONTENTS (PRINC CONTENTS))) )) ) )
+       CONSID-FIELDS )
+ T )
+
+(DEFUN C-FIELD-CONTENTS (CF-ATOM CNSD)
+  (CASEQ CF-ATOM
+    (|r-graph| (CONSID-R-GRAPH CNSD))
+    (|type| (CONSID-TYPE CNSD))
+    (|rule| (CONSID-RULE CNSD))
+    (|prem-nodes| (CONSID-PREM-NODES CNSD))
+    (|concl-node| (CONSID-CONCL-NODE CNSD))
+    (|goal-nodes| (CONSID-GOAL-NODES CNSD))
+    (|inher-rel-strength| (CONSID-INHER-REL-STRENGTH CNSD))
+    (|force| (CONSID-FORCE CNSD))
+    (|conclusion-formula|
+       (BELIEF-FORMULA (RP-NODE-CONTENT (CONSID-CONCL-NODE CNSD))) )
+    (T (BREAK |C-FIELD-CONTENTS - unrecognized consid-field atom|)) ) )
+;	     Processes for Summarizing the Reasoning Graph
+
+(DEFSTRUCT (R-GRAPH-DISPLAY-DIRECTORY-ENTRY (CONC-NAME RG-DD-ENTRY-)
+					    (TYPE TREE) )
+	   DISPLAY-NAME RG-ITEM )
+
+(DEFSTRUCT (R-GRAPH-DISPLAY-LINE (CONC-NAME RG-D-LINE-))
+	   POINTERS LEVEL MAX-PREM-LEVEL CONSID-NAME CONSID-IDENT RP-NODE-NAME
+	   RP-WFF-COLON RP-NODE-WFF )
+
+(DEFSTRUCT (D-LINE-POINTER-PAIR (TYPE TREE) (CONC-NAME RG-D-LINE-)
+				(BUT-FIRST RG-D-LINE-POINTERS) )
+	   PART-D-LINE SUPP-D-LINES )
+
+(DEFMACRO CSR:GET-CONSID-IDENT (CONSID)
+ `(CASEQ (CONSID-RULE ,CONSID)
+    (QUANTIFIED-MODUS-PONENS 'QMP)
+    (STATISTICAL-SYLLOGISM 'STS)
+    (NEGATION 'NEG)
+    (T (BREAK |CSR:GET-CONSID-IDENT - unrecognized consid-rule|)) ) )
+
+(DEFMACRO CSR:ISA-DISPLAY-LINE (ITEM)
+ `(AND (EQ 'HUNK8 (TYPEP ,ITEM))
+       (FIXP (RG-D-LINE-LEVEL ,ITEM)) ) )
+
+(DEFUN ANY-CONCL-DESCENDANTS? (RP-NODE NODE-LIST)
+ (COND ((NULL (RP-NODE-PART-CONSIDS RP-NODE))
+	   (*THROW 'DESCENDANTS NIL) ))
+ (MAPC #'(LAMBDA (CONSID)
+	   (LET* ((CONCL-NODE (CONSID-CONCL-NODE CONSID))
+		  (NODE-LIST-TAIL (MEMQ CONCL-NODE NODE-LIST)) )
+		 (COND (NODE-LIST-TAIL (*THROW 'DESCENDANTS NODE-LIST-TAIL))
+		       (T (ANY-CONCL-DESCENDANTS? CONCL-NODE NODE-LIST)) ) ) )
+       (RP-NODE-PART-CONSIDS RP-NODE) ) )
+
+(DEFMACRO CULL-RELATIVES-BACKWARD (NODE-LIST)
+ `(DO ((TAIL (CDR ,NODE-LIST) (CDR TAIL))
+       (CULD-LIST (NCONS (CAR ,NODE-LIST))) )
+      ((NULL TAIL) CULD-LIST)
+      (COND ((NOT (*CATCH 'DESCENDANTS (ANY-CONCL-DESCENDANTS?
+					 (CAR TAIL) CULD-LIST )))
+	       (PUSH (CAR TAIL) CULD-LIST) )) ) )
+
+(DEFMACRO CSR:REMOVE-RELATIVES (RP-NODE-LIST)
+ `(LET* ((CULLED-LIST (CULL-RELATIVES-BACKWARD ,RP-NODE-LIST))
+	 (RE-CULLED-LIST (CULL-RELATIVES-BACKWARD CULLED-LIST)) )
+	RE-CULLED-LIST ) )
+
+(DEFMACRO HAS-NEGATION-CONSIDS (RP-NODE)
+ `(SOME (RP-NODE-RLVT-CONSIDS ,RP-NODE)
+	#'(LAMBDA (CNSD)
+	    (EQ 'NEGATION-CONSID (CONSID-TYPE CNSD)) ) ) )
+
+(DEFMACRO CSR:REMOVE-TARGET-DEPENDENT-NEGATIONS (RP-NODE-LIST)
+ `(DO ((N-TAIL ,RP-NODE-LIST (CDR N-TAIL))
+       (N-LIST (COPYLIST ,RP-NODE-LIST))
+       (NODE) (NODE-NEGATION) )
+      ((NULL N-TAIL) N-LIST)
+      (SETQ NODE (CAR N-TAIL)
+	    NODE-NEGATION (CAR (MEMQ (RP-NODE-NEGATION NODE)
+				     (CDR N-TAIL) )) )
+      (COND (NODE-NEGATION
+	       (COND ((HAS-NEGATION-CONSIDS NODE-NEGATION)
+		        (SETQ N-LIST (DELQ NODE N-LIST)) )
+		     ((HAS-NEGATION-CONSIDS NODE)
+		        (DELQ NODE-NEGATION N-LIST) ) ) )) ) )
+
+(DEFUN CSR:SUMMARIZE-R-GRAPH (R-GRAPH TYPE
+	   &aux (DISPLAY-LIST-PTR (CASEQ TYPE (COMPLETED RG-DISPLAY-LIST-PTR)
+					      (GOAL RG-GOAL-DISPLAY-LIST-PTR)
+					      (FULL RG-FULL-DISPLAY-LIST-PTR) )) )
+  (COND ((CAR DISPLAY-LIST-PTR)
+	   (BREAK |CSR:SUMMARIZE-R-GRAPH - display-list already exists!|) ))
+  (CASEQ TYPE
+    (COMPLETED
+      (MAPC #'(LAMBDA (RP-NODE)
+		(CSR:GET-OR-MAKE-RG-ITEM-NAME RP-NODE)
+		(CSR:CONSTRUCT-RG-DISPLAY-LINES:RP-NODE
+		      RP-NODE 1 NIL DISPLAY-LIST-PTR ) )
+	    (REVERSE (R-GRAPH-T-BASIS R-GRAPH)) )
+      (COND ((CAR DISPLAY-LIST-PTR)
+	       (CSR:NORMALIZE-DISPLAY-LIST
+		  (CAR DISPLAY-LIST-PTR)
+		  'RG-NORM-DISPLAY-LIST ) )) )
+    (FULL
+      (MAPC #'(LAMBDA (RP-NODE)
+		(CSR:CONSTRUCT-RG-FULL-DISPLAY-LINES:RP-NODE
+		      RP-NODE 1 NIL DISPLAY-LIST-PTR ) )
+	    (REVERSE (R-GRAPH-T-BASIS R-GRAPH)) )
+      (COND ((CAR DISPLAY-LIST-PTR)
+	       (CSR:NORMALIZE-DISPLAY-LIST
+		  (CAR DISPLAY-LIST-PTR)
+		  'RG-NORM-FULL-DISPLAY-LIST ) )) )
+    (GOAL
+      (LET* ((NON-GOAL-RP-NODES
+	       (COND ((CAR RP-NODE-DISPLAY-DIRECTORY-PTR)
+			(MAPCAR #'CDR (CAR RP-NODE-DISPLAY-DIRECTORY-PTR)) )
+		     (T (REVERSE (R-GRAPH-T-BASIS R-GRAPH))) ) )
+	     (GOAL-RLVT-NON-GOAL-RP-NODES
+	       (SUBSET NON-GOAL-RP-NODES
+		       #'(LAMBDA (NODE)
+			   (SOME (RP-NODE-RLVT-CONSIDS NODE)
+				 #'(LAMBDA (CONSID)
+				     (CONSID-GOAL-NODES CONSID) ) ) ) ) )
+	     (UNRELATED-GOAL-RLVT-NON-GOAL-RP-NODES
+		(CSR:REMOVE-RELATIVES GOAL-RLVT-NON-GOAL-RP-NODES) )
+	     (GOAL-SUMMARY-ROOT-NODES
+	       (CSR:REMOVE-TARGET-DEPENDENT-NEGATIONS
+		    UNRELATED-GOAL-RLVT-NON-GOAL-RP-NODES ) ) )
+	    (MAPC #'(LAMBDA (RP-NODE)
+		      (CSR:CONSTRUCT-RG-FULL-DISPLAY-LINES:RP-NODE
+			    RP-NODE 1 NIL DISPLAY-LIST-PTR ) )
+		  GOAL-SUMMARY-ROOT-NODES )
+	    (COND ((CAR DISPLAY-LIST-PTR)
+		     (CSR:NORMALIZE-DISPLAY-LIST
+			(CAR DISPLAY-LIST-PTR)
+			'RG-NORM-GOAL-DISPLAY-LIST ) )) ) ) ) )
+
+(DEFMACRO CSR:COMPUTE-MAX-LEVEL (DISPLAY-LIST)
+ `(LET ((MAX-LEVEL 0)
+	NEW-LEVEL )
+       (MAPC #'(LAMBDA (D-LINE)
+		 (SETQ NEW-LEVEL (RG-D-LINE-LEVEL D-LINE))
+		 (COND ((> NEW-LEVEL MAX-LEVEL)
+			  (SETQ MAX-LEVEL NEW-LEVEL) )) )
+	     ,DISPLAY-LIST )
+       MAX-LEVEL ) )
+
+; Sets the specvars RG-NORM-DISPLAY-LIST, etc.
+(DEFUN CSR:NORMALIZE-DISPLAY-LIST (DISPLAY-LIST NORM-DISPLAY-LISTVAR)
+ (LET ((MAX-LEVEL (CSR:COMPUTE-MAX-LEVEL DISPLAY-LIST))
+       (MAX-LEVEL-VAR (CASEQ NORM-DISPLAY-LISTVAR
+			(RG-NORM-DISPLAY-LIST 'RG-DISPLAY-MAX-LEVEL)
+			(RG-NORM-GOAL-DISPLAY-LIST 'RG-GOAL-DISPLAY-MAX-LEVEL)
+			(RG-NORM-FULL-DISPLAY-LIST 'RG-FULL-DISPLAY-MAX-LEVEL) ))
+       LEVEL-1-D-LINES REPEAT-LIST )
+      (SET MAX-LEVEL-VAR MAX-LEVEL)
+      (DO ((LEVEL MAX-LEVEL (1- LEVEL)))
+	  ((= 1 LEVEL) T)
+	  (MAPC #'(LAMBDA (D-LINE)
+		    (COND ((= LEVEL (RG-D-LINE-LEVEL D-LINE))
+			     (PROPAGATE-MAX-LEVEL LEVEL D-LINE) )) )
+		DISPLAY-LIST ) )
+      (SETQ LEVEL-1-D-LINES 
+	      (SORT (SUBSET DISPLAY-LIST #'(LAMBDA (D-LINE)
+					     (= 1 (RG-D-LINE-LEVEL D-LINE)) ) )
+		    #'(LAMBDA (DL1 DL2)
+			(< (RG-D-LINE-MAX-PREM-LEVEL DL1)
+			   (RG-D-LINE-MAX-PREM-LEVEL DL2) ) ) ) )
+      (MAPC #'(LAMBDA (D-LINE)
+		(CSR:PUSH-D-LINES D-LINE NORM-DISPLAY-LISTVAR) )
+	    LEVEL-1-D-LINES )
+      (MAPC #'(LAMBDA (D-LINE)
+		(COND ((MEMQ (RG-D-LINE-RP-NODE-NAME D-LINE) REPEAT-LIST)
+			 (SETF (RG-D-LINE-RP-WFF-COLON D-LINE) |::|) )
+		      (T (SETF (RG-D-LINE-RP-WFF-COLON D-LINE) |: |)
+			 (PUSH (RG-D-LINE-RP-NODE-NAME D-LINE) REPEAT-LIST) ) ) )
+	    (SYMEVAL NORM-DISPLAY-LISTVAR) ) ) )
+
+; Uses freely the specvars RG-NORM-DISPLAY-LIST and RG-NORM-GOAL-DISPLAY-LIST.
+(DEFUN CSR:PUSH-D-LINES (D-LINE NORM-DISPLAY-LISTVAR)
+  (SET NORM-DISPLAY-LISTVAR (CONS D-LINE (SYMEVAL NORM-DISPLAY-LISTVAR)))
+  (COND ((RG-D-LINE-SUPP-D-LINES D-LINE)
+	   (SETF* (RG-D-LINE-SUPP-D-LINES D-LINE)
+		  (SORT -*- #'CSR:PUSH-BEFORE?) )
+	   (MAPC #'(LAMBDA (SUPP-D-LINE)
+		     (CSR:PUSH-D-LINES SUPP-D-LINE NORM-DISPLAY-LISTVAR) )
+		 (RG-D-LINE-SUPP-D-LINES D-LINE) ) )) )
+
+(DEFMACRO HAS-GOAL-NAMEQ (NAME-TYPE D-LINE)
+ (LET ((ACCESSOR (CASEQ NAME-TYPE (RP-NODE 'RG-D-LINE-RP-NODE-NAME)
+				  (CONSID 'RG-D-LINE-CONSID-NAME) )))
+      `(EQ 'G (GETCHAR (,ACCESSOR ,D-LINE) 1)) ) )
+
+(DEFMACRO NUMERICAL-STRING-NUMBER (NUM-ASCIIS)
+ `(DO ((ASCII-TAIL ,NUM-ASCIIS (CDR ASCII-TAIL))
+       (TALLY 0) )
+      ((NULL ASCII-TAIL) TALLY)
+      (SETQ TALLY (+ (* 10. TALLY) (- (CAR ASCII-TAIL) 48.))) ) )
+
+(DEFMACRO RG-ITEM-NAME-INDEX (ITEM)
+ `(LET* ((ITEM ,ITEM)
+	 (INDEX-ASCIIS (CASEQ (GETCHAR ITEM 1) (G (CDDR (EXPLODEN ITEM)))
+					       (T (CDR (EXPLODEN ITEM))) )) )
+	(NUMERICAL-STRING-NUMBER INDEX-ASCIIS) ) )
+
+(DEFMACRO HAS-HIGHER-NAME-INDEXQ (NAME-TYPE DL1 DL2)
+ (LET ((ACCESSOR (CASEQ NAME-TYPE (RP-NODE 'RG-D-LINE-RP-NODE-NAME)
+				  (CONSID 'RG-D-LINE-CONSID-NAME) )))
+      `(LET ((INDEX1 (RG-ITEM-NAME-INDEX (,ACCESSOR ,DL1)))
+	     (INDEX2 (RG-ITEM-NAME-INDEX (,ACCESSOR ,DL2))) )
+	    (> INDEX1 INDEX2) ) ) )
+
+; this version is written more for clarity than efficiency; the latter does
+; not presently seem very important in this function.  A discrimination-net
+; version can easily be written if it is ever deemed to be worthwhile.
+(DEFUN CSR:PUSH-BEFORE? (SDL1 SDL2)
+ (COND ((AND (NULL (RG-D-LINE-CONSID-NAME SDL1))
+	     (RG-D-LINE-CONSID-NAME SDL2) )  T)
+       ((AND (RG-D-LINE-CONSID-NAME SDL1)
+	     (NULL (RG-D-LINE-CONSID-NAME SDL2)) )  NIL)
+       ((AND (HAS-GOAL-NAMEQ RP-NODE SDL1)
+	     (NOT (HAS-GOAL-NAMEQ RP-NODE SDL2)) )  T)
+       ((AND (NOT (HAS-GOAL-NAMEQ RP-NODE SDL1))
+	     (HAS-GOAL-NAMEQ RP-NODE SDL2) )  NIL)
+       ((HAS-HIGHER-NAME-INDEXQ RP-NODE SDL1 SDL2)  T)
+       ((HAS-HIGHER-NAME-INDEXQ RP-NODE SDL2 SDL1)  NIL)
+       ((AND (HAS-GOAL-NAMEQ CONSID SDL1)
+	     (NOT (HAS-GOAL-NAMEQ CONSID SDL2)) )  T)
+       ((AND (NOT (HAS-GOAL-NAMEQ CONSID SDL1))
+	     (HAS-GOAL-NAMEQ CONSID SDL2) )  NIL)
+       ((HAS-HIGHER-NAME-INDEXQ CONSID SDL1 SDL2)  T)
+       (T NIL) ) )
+
+(DEFUN PROPAGATE-MAX-LEVEL (LEVEL D-LINE)
+ (COND ((NULL (RG-D-LINE-MAX-PREM-LEVEL D-LINE))
+	  (SETF (RG-D-LINE-MAX-PREM-LEVEL D-LINE) LEVEL)
+	  (COND ((RG-D-LINE-PART-D-LINE D-LINE)
+		   (PROPAGATE-MAX-LEVEL LEVEL (RG-D-LINE-PART-D-LINE D-LINE)) )) )) )
+
+; This fn is a recursive process that constructs an unordered set of linked
+; display lines.  Each display line ("d-line" for short) represents one
+; logical line of support for some reasoning proposition, and has pointers:
+;  (i) to the conclusion d-line (if any) for which it serves as a premise, and
+; (ii) to its own supporting premise-d-lines (if any).  This fn takes as
+; arguments an rp-node, the level of that node in the reasoning chain
+; (the final conclusion is of level 1, its premises are of level 2, etc.),
+; and the conclusion-d-line of the argument in which the rp-node participates
+; (this will be null for all final-conclusion rp-nodes).  This fn yields as
+; value a list of the immediate premise-d-lines constructed for the argument
+; rp-node.  The d-lines constructed are tconc-ed onto a display-list accessed
+; by a specvar that is bound at a higher level by CSR:EXPLORE-R-GRAPH.
+(DEFUN CSR:CONSTRUCT-RG-DISPLAY-LINES:RP-NODE
+				(RP-NODE LEVEL PART-D-LINE DISPLAY-LIST-PTR)
+ (COND ((MEMQ RP-NODE (R-GRAPH-K-BASIS (RP-NODE-R-GRAPH RP-NODE)))
+	  (NCONS (CADR (TCONC (CSR:CONSTRUCT-RG-DISPLAY-LINE
+				    LEVEL NIL RP-NODE PART-D-LINE )
+			      DISPLAY-LIST-PTR ))) )
+       (T (LET ((RLVT-CONSIDS (SUBSET (RP-NODE-RLVT-CONSIDS RP-NODE)
+				      #'(LAMBDA (CONSID)
+					  (NULL (CONSID-GOAL-NODES CONSID)) ) )))
+; code too wide to indent fully
+   (MAPCAR #'(LAMBDA (CONSID)
+	       (LET* ((CONCL-D-LINE (CSR:CONSTRUCT-RG-DISPLAY-LINE
+					  LEVEL CONSID RP-NODE PART-D-LINE ))
+		      (PREM-D-LINES
+			(MAPCAN #'(LAMBDA (PREM-NODE)
+				    (CSR:CONSTRUCT-RG-DISPLAY-LINES:RP-NODE
+				       PREM-NODE
+				       (1+ LEVEL)
+				       CONCL-D-LINE
+				       DISPLAY-LIST-PTR ) )
+				(CONSID-PREM-NODES CONSID) ) ) )
+		     (SETF (RG-D-LINE-SUPP-D-LINES CONCL-D-LINE) PREM-D-LINES)
+		     (TCONC CONCL-D-LINE DISPLAY-LIST-PTR)
+		     CONCL-D-LINE ) )
+	   RLVT-CONSIDS ) )) ) )
+
+(DEFUN CSR:CONSTRUCT-RG-FULL-DISPLAY-LINES:RP-NODE
+			(RP-NODE LEVEL PART-D-LINE DISPLAY-LIST-PTR)
+ (COND ((MEMQ RP-NODE (R-GRAPH-K-BASIS (RP-NODE-R-GRAPH RP-NODE)))
+	  (NCONS (CADR (TCONC (CSR:CONSTRUCT-RG-DISPLAY-LINE
+				    LEVEL NIL RP-NODE PART-D-LINE )
+			      DISPLAY-LIST-PTR ))) )
+       ((NULL (RP-NODE-RLVT-CONSIDS RP-NODE))
+	  (NCONS (CADR (TCONC (CSR:CONSTRUCT-RG-DISPLAY-LINE
+				    LEVEL NIL RP-NODE PART-D-LINE )
+			      DISPLAY-LIST-PTR ))) )
+;      (T (MULTIPLE-VALUE-BIND (RLVT-CONSIDS GOAL-RLVT-CONSIDS)
+;			(CSR:CLASSIFY-CONSIDS (RP-NODE-RLVT-CONSIDS RP-NODE)) ))
+; code too wide to indent fully
+(T (MAPCAR #'(LAMBDA (CONSID)
+	       (LET* ((CONCL-D-LINE (CSR:CONSTRUCT-RG-DISPLAY-LINE
+					  LEVEL CONSID RP-NODE PART-D-LINE ))
+		      (PREM-D-LINES
+			(MAPCAN #'(LAMBDA (PREM-NODE)
+				    (CSR:CONSTRUCT-RG-FULL-DISPLAY-LINES:RP-NODE
+				       PREM-NODE
+				       (1+ LEVEL)
+				       CONCL-D-LINE
+				       DISPLAY-LIST-PTR ) )
+				(CONSID-PREM-NODES CONSID) ) ) )
+		     (SETF (RG-D-LINE-SUPP-D-LINES CONCL-D-LINE) PREM-D-LINES)
+		     (TCONC CONCL-D-LINE DISPLAY-LIST-PTR)
+		     CONCL-D-LINE ) )
+	   (RP-NODE-RLVT-CONSIDS RP-NODE) )) ) )
+
+(DEFUN CSR:CONSTRUCT-RG-DISPLAY-LINE (LEVEL CONSID RP-T-NODE PART-D-LINE)
+ (LET* ((RP-DISPLAY-NODE
+	  (COND ((AND CONSID (EQ 'NEGATION-CONSID (CONSID-TYPE CONSID)))
+		   (RP-NODE-NEGATION RP-T-NODE) )
+		(T RP-T-NODE) ))
+	(RP-NODE-NAME (CSR:GET-OR-MAKE-RG-ITEM-NAME RP-DISPLAY-NODE))
+	(RP-NODE-WFF (RP-NODE-FORMULA RP-DISPLAY-NODE))
+	(CONSID-NAME  NIL)
+	(CONSID-IDENT 
+	  (COND (CONSID (SETQ CONSID-NAME (CSR:GET-OR-MAKE-RG-ITEM-NAME CONSID))
+			(CSR:GET-CONSID-IDENT CONSID) )
+		(T NIL) ) )
+	(DISPLAY-LINE
+	   (MAKE-R-GRAPH-DISPLAY-LINE
+	      LEVEL LEVEL
+	      CONSID-NAME CONSID-NAME
+	      CONSID-IDENT CONSID-IDENT
+	      RP-NODE-NAME RP-NODE-NAME
+	      RP-NODE-WFF RP-NODE-WFF
+	      POINTERS (MAKE-D-LINE-POINTER-PAIR PART-D-LINE PART-D-LINE) ) ) )
+       DISPLAY-LINE ) )
+
+(DEFMACRO CSR:MAKE-RG-ITEM-NAME (NODE-FLAG GOALINESS)
+ `(MULTIPLE-VALUE-BIND (IMP-LIST TALLY)
+       (COND (,NODE-FLAG
+		(CASEQ ,GOALINESS
+		  (NON-GOAL (VALUES '(P) (SETF* RPND-TALLY (1+ -*-))))
+		  (GOAL (VALUES '(G P) (SETF* GOAL-RPND-TALLY (1+ -*-)))) ) )
+	     (T (CASEQ ,GOALINESS
+		  (NON-GOAL (VALUES '(C) (SETF* CNSD-TALLY (1+ -*-))))
+		  (GOAL (VALUES '(G C) (SETF* GOAL-CNSD-TALLY (1+ -*-)))) )) )
+    (IMPLODE (APPEND IMP-LIST (EXPLODE TALLY))) ) )
+
+(DEFMACRO CSR:RG-ITEM-GOALINESS (ITEM NODE-FLAG)
+ `(COND (,NODE-FLAG (COND ((SOME (RP-NODE-RLVT-CONSIDS ,ITEM)
+				 #'(LAMBDA (CONSID)
+				     (NULL (CONSID-GOAL-NODES CONSID)) ) )
+			     'NON-GOAL )
+			  (T 'GOAL) ))
+	(T (COND ((CONSID-GOAL-NODES ,ITEM) 'GOAL)
+		 (T 'NON-GOAL) )) ) )
+
+(DEFUN CSR:GET-OR-MAKE-RG-ITEM-NAME (RG-ITEM)
+  (LET* ((ISA-RP-NODE-FLAG (COND ((ISA-RP-NODE RG-ITEM) 'T)
+				 (T NIL) ))
+	 (GOALINESS (CSR:RG-ITEM-GOALINESS RG-ITEM ISA-RP-NODE-FLAG))
+	 (DIRECTORY-PTR (COND (ISA-RP-NODE-FLAG
+			         (CASEQ GOALINESS
+				   (NON-GOAL RP-NODE-DISPLAY-DIRECTORY-PTR)
+				   (GOAL RP-NODE-GOAL-DISPLAY-DIRECTORY-PTR) ) )
+			      (T (CASEQ GOALINESS
+				   (NON-GOAL CONSID-DISPLAY-DIRECTORY-PTR)
+				   (GOAL CONSID-GOAL-DISPLAY-DIRECTORY-PTR) )) )) )
+	(COND ((RA-Q-GET (CAR DIRECTORY-PTR) RG-ITEM))
+	      (T (LET ((ITEM-NAME-REGISTER
+			 (CSR:MAKE-RG-ITEM-NAME ISA-RP-NODE-FLAG GOALINESS) ))
+		      (TCONC (CONS ITEM-NAME-REGISTER RG-ITEM) DIRECTORY-PTR)
+		      ITEM-NAME-REGISTER )) ) ) )
+
+(DEFUN CSR:DISPLAY-RG-SUMMARY (R-GRAPH TYPE &aux NORM-DISPLAY-LISTVAR)
+  (SETQ NORM-DISPLAY-LISTVAR (CASEQ TYPE (COMPLETED 'RG-NORM-DISPLAY-LIST)
+				      (GOAL 'RG-NORM-GOAL-DISPLAY-LIST)
+				      (FULL 'RG-NORM-FULL-DISPLAY-LIST) ))
+  (OR (SYMEVAL NORM-DISPLAY-LISTVAR) (CSR:SUMMARIZE-R-GRAPH R-GRAPH TYPE))
+  (OR (SYMEVAL NORM-DISPLAY-LISTVAR)
+      (CASEQ TYPE
+	(COMPLETED
+; line to wide to indent
+(WRITE "There are no completed (i.e., non-goal) considerations to display.") )
+	(GOAL (WRITE "There are no goal-considerations to display."))
+	(FULL (WRITE "There are no considerations to display.") ) ) )
+  (CSR:DISPLAY-RG-D-LIST (SYMEVAL NORM-DISPLAY-LISTVAR) TYPE) )
+
+(DEFUN CSR:DISPLAY-RG-D-LIST (DISPLAY-LIST TYPE
+		 &aux (CURRENTPOS 1) (TABVAL 0) (NEXT-TABVAL 1)
+		      (MAX-LEVEL (CASEQ TYPE (COMPLETED RG-DISPLAY-MAX-LEVEL)
+					     (GOAL RG-GOAL-DISPLAY-MAX-LEVEL)
+					     (FULL RG-FULL-DISPLAY-MAX-LEVEL) ))
+		      (TAB-INDEX `((,(1- MAX-LEVEL) . 1) (,MAX-LEVEL . 1))) )
+ (MAPC #'(LAMBDA (D-LINE)
+	  (LET ((CONSID-NAME (RG-D-LINE-CONSID-NAME D-LINE))
+		(LEVEL (RG-D-LINE-LEVEL D-LINE)) )
+	       (SETQ TABVAL (A-GET TAB-INDEX LEVEL))
+	       (COND (CONSID-NAME
+			(WRITE (TAB TABVAL) CONSID-NAME
+			       |:| (RG-D-LINE-CONSID-IDENT D-LINE) |->| )
+			(SETQ NEXT-TABVAL (+ TABVAL 6. (FLATC CONSID-NAME)))
+			(A-PUTPROP TAB-INDEX NEXT-TABVAL (1- LEVEL)) )
+		     (T (COND ((= LEVEL MAX-LEVEL)
+			         (TAB TABVAL) )
+			      (T (TAB (A-GET TAB-INDEX (1- LEVEL)))) )) )
+	       (WRITE (RG-D-LINE-RP-NODE-NAME D-LINE)
+		      (RG-D-LINE-RP-WFF-COLON D-LINE)
+		      (RG-D-LINE-RP-NODE-WFF D-LINE) T )
+	       (SETQ CURRENTPOS 1) ) )
+       DISPLAY-LIST )
+ T )
+
+;    Processes for Exploring and Displaying the Reasoning Task-Record
+
+(DEFUN IPC (&optional (TERMINAL-TYPE 'DM))
+  (INTERACTIVE-PROGRAM-CONTROL TERMINAL-TYPE) )
+
+(DEFUN INTERACTIVE-PROGRAM-CONTROL (&optional (TERMINAL-TYPE 'DM))
+ (PROG (PROMPT-STRING COMMAND RETURNED-VALUE CURRENT-PROGRAM)
+       (OR (BOUNDP '*WELCOMED-LIST*) (SETQ *WELCOMED-LIST* NIL))
+       (SETQ PROMPT-STRING 'IPC**)
+       (WRITE T T T "Welcome to the Advice-Taker's INTERACTIVE-PROGRAM-CONTROL."
+; lines too wide to indent
+T "For a list of available interactive programs and other commands,"
+T "please type ? to the prompt IPC**.  For more information, type ?? ;"
+T "for all available information, type (?? *) ." )
+    A  (SETQ COMMAND (GET-XPDN-COMMAND))
+       (COND ((SYMBOLP COMMAND))
+	     ((AND (CONSP COMMAND)
+		   (SYMBOLP (CAR COMMAND))
+		   (ALL (CDR COMMAND)
+			#'(LAMBDA (ARG) (OR (FIXP ARG) (SYMBOLP ARG))) ) ))
+	     (T (WRITE T
+		   '| - improper command or argument -- please try again ...| )
+		(GO A) ) )
+    B  (SETQ RETURNED-VALUE (ERRSET
+	 ;; lines too wide to indent fully
+	(CASEQ (COND ((SYMBOLP COMMAND) COMMAND) (T (CAR COMMAND)))
+	   (XTR (SETQ CURRENT-PROGRAM 'EXPLORE-TASK-RECORD)
+		(FUNCALL CURRENT-PROGRAM) )
+	   (XRG (SETQ CURRENT-PROGRAM 'EXPLORE-R-GRAPH)
+		(FUNCALL CURRENT-PROGRAM) )
+	   (DEM (SETQ CURRENT-PROGRAM 'DEMO-COMMONSENSE-REASONING)
+		(FUNCALL CURRENT-PROGRAM) )
+	   (SHV (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	    ;; Set Help-message Verbosity
+		          ;; missing argument defaults to O.
+		         (IPC:SET-HELP-VERBOSITY 'O) )
+		      (T (IPC:SET-HELP-VERBOSITY (CADR COMMAND))) ))
+	   ((Q QUIT EXIT) (RETURN "done"))
+	   ((? H) (IPC-SHORT-HELP))
+	   ((?? HH HELP) (IPC-HELP (COND ((ATOM COMMAND) NIL)
+					 (T (CDR COMMAND)) )))
+	   (T (WRITE T '| - unrecognized command| '| -- please try again ...|)) )
+	IPC:ERRSET-FLAG ))
+    (COND ((NULL RETURNED-VALUE)
+	     (WRITE T '| - bad command//argument combination|
+		      '| -- please try again ...| )
+	     (GO A) )
+	  ((OR (CONSP (CAR RETURNED-VALUE))
+	       (MEMQ (CAR RETURNED-VALUE) *IPC-PROGRAM-CMDS*) )
+	     (SETQ COMMAND (CAR RETURNED-VALUE))
+	     (GO B) )
+	  ((MEMQ (CAR RETURNED-VALUE) '(Q QUIT))
+	     (WRITE T 'INTERACTIVE-PROGRAM-CONTROL |.|)
+	     (GO A) )
+	  (T (GO A)) ) ) )
+
+(DEFUN IPC:SET-HELP-VERBOSITY (KEY)
+  (SETQ IPC:HELP-VERBOSITY
+	  (COND ((EQ 'V KEY) 'VERBOSE)
+		((EQ 'T KEY) 'TERSE)
+		((EQ 'O KEY) (COND ((EQ 'VERBOSE IPC:HELP-VERBOSITY) 'TERSE)
+				   (T 'VERBOSE) ))
+		(T (BREAK |IPC:SET-HELP-VERBOSITY - unrecognized KEY|)) ) ) )
+
+(DEFUN IPC-SHORT-HELP ()
+  (WRITE T "Commands:  XTR  XRG  DEM  SHV  ?,H  ??,HH,HELP  Q,QUIT") )
+
+(DEFUN IPC-HELP (CMD-TAIL
+		     &aux (CURRENTPOS 1) (TABVAL1 6.) (TABVAL2 39.) TEXT-FLAG )
+  (COND ((OR (NULL CMD-TAIL) (EQ '* (CAR CMD-TAIL)))
+	   (SETQ CURRENTPOS 1)
+	   (WRITE T (TAB 8.) (POSPRINC
+		  "Program and Command Summary - INTERACTIVE-PROGRAM-CONTROL" )
+		  (TAB 16.) '|Syntax: <cmd> or (<cmd> {<arg>} ...)|
+; 3 lines too wide to indent
+T "IPC permits a user to switch back and forth among several interactive programs,"
+T "while preserving the state of each -- a form of coroutining.   The IPC program-"
+T "commands are also available as transfer-commands within individual IPC programs."
+		  T T )
+	   (SETQ TEXT-FLAG (COND (CMD-TAIL 'TEXT) (T 'NO-TEXT)))
+	   (MAPC #'(LAMBDA (ENTRY)
+		     (COND ((EQ 'DD TERMINAL-TYPE) (WRITE T T)))
+		     (DISPLAY-HELP-TABLE-ENTRY ENTRY TEXT-FLAG) )
+		 IPC-HELP-TABLE ) )
+	(T (SETQ CURRENTPOS 1)
+	   (COND ((EQ 'VERBOSE IPC:HELP-VERBOSITY)
+		    (WRITE T (TAB 8.) (POSPRINC
+		     "Some Program//Command Info - INTERACTIVE-PROGRAM-CONTROL" )
+		     (TAB 16.) '|Syntax: <cmd> or (<cmd> {<arg>} ...)| T T ) ))
+	   (MAPC #'(LAMBDA (CMD)
+		     (LET* ((CMD-KEY (CASEQ CMD
+				       ((Q QUIT) '|Q,QUIT|)
+				       ((? H) '|?,H|)
+				       ((?? HH HELP) '|??,HH,HELP|)
+				       (T CMD) ))
+			    (ENTRY (ASSQ CMD-KEY IPC-HELP-TABLE)) )
+			   (COND (ENTRY
+				  (DISPLAY-HELP-TABLE-ENTRY ENTRY 'TEXT) )) ) )
+		 CMD-TAIL )) )
+  T )
+
+(SETQ IPC-HELP-TABLE
+'((XTR "Explore Task-Record" "optional argument: a task-record-var" NIL
+       "Permits interactive examination of a task-record (executed agenda)."
+       "The argument, if omitted, defaults to the value of TASK-REC." )
+  (XRG "Explore Reasoning-Graph" "optional argument: an r-graph-var" NIL
+       "Permits interactive examination of a reasoning-graph."
+       "The argument, if omitted, defaults to the value of RGRAPH." )
+  (DEM "Demonstrate reasoning program" |no arguments| NIL
+       "Permits convenient demonstration of the Advice-Taker's"
+       "Commonsense Reasoning program." )
+  (SHV "Set Help-message Verbosity" "arguments: V, T, or O" NIL
+     "Argument V sets the verbosity-level to 'VERBOSE, and T sets it to 'TERSE."
+     "Argument O sets the level to the Opposite of its current value."
+     "The argument defaults to O." )
+  (|?,H| "mini-Help: 1-line command summary" |no arguments|)
+  (|??,HH,HELP| "Help: command information" |arguments: none, or commands, or *|
+   NIL "With no arguments, prints help-summaries for all programs and commands."
+       "With command-args, prints full help-texts for the progs and cmds specified."
+       "With argument *, prints full help-texts for all programs and commands." )
+  (|Q,QUIT| "Quit" |no arguments|) ) )
+
+(DEFMACRO TASK-RECORD-CHECK (CMD-ATOM)
+ `(COND ((OR (AND (BOUNDP '*TASK-RECORD*) *TASK-RECORD*)
+	     (MEMQ ,CMD-ATOM '(GTR ? H ?? HH HELP Q QUIT)) ))
+	(T (WRITE T
+		"There is no current task-record; you may use GTR to get one."
+		  T '| -- please try again ...| )
+	   (GO A) ) ) )
+
+(DEFUN XPTR (&optional TASK-RECORD) (EXPLORE-TASK-RECORD TASK-RECORD))
+
+;; The global variables *TASK-RECORD*, CURRENT-TASK, CURRENT-TASK-PATH, and
+;;  CURRENT-TASK-NUMBER are used freely by EXPLORE-TASK-RECORD and several
+;;  subsidiary functions.
+(DEFUN EXPLORE-TASK-RECORD (&optional TASK-RECORD)
+ (PROG (PROMPT-STRING COMMAND)
+       (SETQ *NOPOINT 'T   PROMPT-STRING 'TR**)
+       (OR (BOUNDP '*TASK-RECORD*) (GET-TASK-RECORD TASK-RECORD 'INIT-CALL))
+       (COND ((MEMQ 'XTR *WELCOMED-LIST*) (WRITE T 'EXPLORE-TASK-RECORD |.|))
+	     (T (PUSH 'XTR *WELCOMED-LIST*)
+		(WRITE T "Welcome to EXPLORE-TASK-RECORD." T
+;; line too wide to indent fully
+"This program permits convenient examination of a previously executed agenda"
+T "of reasoning tasks;  please type commands to the prompt TR**." ) ) )
+       (COND ((AND (BOUNDP '*TASK-RECORD*)
+		   (BOUNDP 'TASK-REC)
+		   (NOT (EQ *TASK-RECORD* TASK-REC)) )
+	        (WRITE T "A new task-record exists;  shall we get it?  ")
+		(COND ((GET-YES-OR-NO) (GET-TASK-RECORD TASK-REC))) ))
+    A  (SETQ COMMAND (GET-XPDN-COMMAND))
+       (COND ((SYMBOLP COMMAND)
+		(TRANSFER-CHECK COMMAND)
+		(TASK-RECORD-CHECK COMMAND) )
+	     ((AND (CONSP COMMAND)
+		   (SYMBOLP (CAR COMMAND))
+		   (ALL (CDR COMMAND)
+			#'(LAMBDA (ARG) (OR (FIXP ARG) (SYMBOLP ARG))) ) )
+		(TRANSFER-CHECK (CAR COMMAND))
+		(TASK-RECORD-CHECK (CAR COMMAND)) )
+	     (T (WRITE T
+		   '| - improper command or argument -- please try again ...| )
+		(GO A) ) )
+       (OR (ERRSET
+	(CASEQ (COND ((SYMBOLP COMMAND) COMMAND) (T (CAR COMMAND)))
+	   (GTR (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	    ;; Get Task Record
+		          ;; missing argument defaults to TASK-RECORD.
+		         (GET-TASK-RECORD TASK-RECORD) )
+		      (T (GET-TASK-RECORD (SYMEVAL (CADR COMMAND)))) ))
+	   (DT (DISPLAY-TASK CURRENT-TASK))
+	    ;; Display current Task
+	   ((T MT) (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	    ;; Move to Task (number)
+			    ;; missing argument defaults to 1.
+			    (MOVE-TO-TASK 'NUM 1) )
+			 (T (MOVE-TO-TASK 'NUM (CADR COMMAND))) ))
+	   ((N F MN MF) (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	     ;; Move to Next task
+				  ;; missing argument defaults to 1.
+				 (MOVE-TO-TASK 'NEXT 1) )
+			      (T (MOVE-TO-TASK 'NEXT (CADR COMMAND))) ))
+	   (B (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	    ;; Move Backward in the task-record
+		        ;; missing argument defaults to 1.
+		       (MOVE-TO-TASK 'BACK 1) )
+		    (T (MOVE-TO-TASK 'BACK (CADR COMMAND))) ))
+	   ((P BP) (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	    ;; move to nth Previous task (Backward on the current-task-Path)
+			     ;; missing argument defaults to 1.
+			    (MOVE-TO-TASK 'PREV 1) )
+			 (T (MOVE-TO-TASK 'PREV (CADR COMMAND))) ))
+	   (CT (COUNT-TASKS) (CLASSIFY-TASKS 'SUCCESS))
+	    ;; Count Tasks
+	   (LS (CLASSIFY-TASKS 'SUCCESS))
+	    ;; List Successful tasks
+	   (LF (CLASSIFY-TASKS 'FAILURE))
+	    ;; List Failed tasks
+	   (LSF (CLASSIFY-TASKS 'ALL))
+	    ;; List Successful and Failed tasks
+	   (ID (WRITE "Current-task-number: " CURRENT-TASK-NUMBER))
+	    ;; IDentify current task
+	   (DP (WRITE "Current-task-path: " CURRENT-TASK-PATH))
+	    ;; Display current-task-Path
+	   (SP (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	    ;; Shorten current-task-Path
+		         ;; missing argument defaults to 1.
+		        (SHORTEN-TASK-PATH 1) )
+		     (T (SHORTEN-TASK-PATH (CADR COMMAND))) ) )
+	   ((Q QUIT EXIT) (SETQ *NOPOINT NIL) (RETURN COMMAND))
+	   ((? H) (XPTR-SHORT-HELP (COND ((ATOM COMMAND) NIL)
+					 (T (CDR COMMAND)) )))
+	   ((?? HH HELP) (XPTR-HELP (COND ((ATOM COMMAND) NIL)
+					  (T (CDR COMMAND)) )))
+	   (T (WRITE T '| - unrecognized command| '| -- please try again ...|)) )
+	IPC:ERRSET-FLAG )
+	   (WRITE T '| - bad command//argument combination|
+		    '| -- please try again ...| ) )
+       (GO A) ) )
+
+(DEFUN GET-TASK-RECORD (TSK-RCRD &optional INIT-CALL-FLAG)
+ (*CATCH 'GET-TR
+  (OR TSK-RCRD
+      (COND ((AND (BOUNDP 'TASK-REC) TASK-REC)
+	       (SETQ TSK-RCRD TASK-REC) )
+	    (INIT-CALL-FLAG (*THROW 'GET-TR NIL))
+	    (T (WRITE T " - no task-record has been specified"
+			'| -- please try again ...| )
+	       (*THROW 'GET-TR NIL) ) ) )
+  (SETQ *TASK-RECORD* TSK-RCRD
+	CURRENT-TASK (CAR *TASK-RECORD*)
+	CURRENT-TASK-NUMBER 1.
+	CURRENT-TASK-PATH (NCONS CURRENT-TASK-NUMBER) ) ) )
+
+(DEFUN SHORTEN-TASK-PATH (ARG)
+  (SETQ CURRENT-TASK-PATH
+	(COND ((FIXP ARG)
+	         (LET ((N-ARG ARG))
+		      (COND ((MINUSP N-ARG)
+			       (NREVERSE (NTHCDR (MINUS N-ARG)
+						 (NREVERSE CURRENT-TASK-PATH) )) )
+			    (T (NTHCDR N-ARG CURRENT-TASK-PATH)) ) ) )
+	      (T NIL) ) )
+  (WRITE "Shortened task-path: " CURRENT-TASK-PATH) )
+
+(DEFUN MOVE-TO-TASK (KEY ARG)
+ (*CATCH 'MOVE-TO-TASK
+  (CASEQ KEY
+    (NUM (COND ((EQ '* ARG) (SETQ ARG (LENGTH *TASK-RECORD*))))
+	 (SETQ CURRENT-TASK-NUMBER ARG
+	       CURRENT-TASK (NTH (1- CURRENT-TASK-NUMBER) *TASK-RECORD*) )
+	 (PUSH CURRENT-TASK-NUMBER CURRENT-TASK-PATH)
+	 (DISPLAY-TASK CURRENT-TASK) )
+    (NEXT (SETQ CURRENT-TASK-NUMBER (+ CURRENT-TASK-NUMBER ARG)
+		CURRENT-TASK (NTH (1- CURRENT-TASK-NUMBER) *TASK-RECORD*) )
+	  (PUSH CURRENT-TASK-NUMBER CURRENT-TASK-PATH)
+	  (DISPLAY-TASK CURRENT-TASK) )
+    (BACK (SETQ CURRENT-TASK-NUMBER (- CURRENT-TASK-NUMBER ARG)
+		CURRENT-TASK (NTH (1- CURRENT-TASK-NUMBER) *TASK-RECORD*) )
+	  (PUSH CURRENT-TASK-NUMBER CURRENT-TASK-PATH)
+	  (DISPLAY-TASK CURRENT-TASK) )
+    (PREV (COND ((NOT (AND (FIXP ARG) (PLUSP ARG)))
+		   (WRITE T '| - argument not a positive number|
+			    '| -- please try again ...| )
+		   (*THROW 'MOVE-TO-TASK NIL) )
+		((> ARG (1- (LENGTH CURRENT-TASK-PATH)))
+		   (WRITE T '| - argument too large|
+			    '| -- please try again ...| )
+		   (*THROW 'MOVE-TO-TASK NIL) ) )
+	  (LET* ((SPLICE-CELL (NTHCDR (1- ARG) CURRENT-TASK-PATH))
+		 (MOVE-CELL (CDR SPLICE-CELL)) )
+		(RPLACD SPLICE-CELL (CDR MOVE-CELL))
+		(SETQ CURRENT-TASK-PATH (RPLACD MOVE-CELL CURRENT-TASK-PATH)
+		      CURRENT-TASK-NUMBER (CAR CURRENT-TASK-PATH)
+		      CURRENT-TASK (NTH (1- CURRENT-TASK-NUMBER) *TASK-RECORD*) )
+		(DISPLAY-TASK CURRENT-TASK) )) ) ) )
+
+(DEFUN COUNT-TASKS (&aux (SUCCESS-TALLY 0) (FAILURE-TALLY 0))
+ (MAPC #'(LAMBDA (TASK)
+	   (LET ((TRIAL-RESULT (A-Q-GET (R-TASK-TRIAL-REPORT TASK) 'TRIAL-RESULT)))
+		(COND ((EQ 'SUCCESS TRIAL-RESULT)
+		         (SETQ SUCCESS-TALLY (1+ SUCCESS-TALLY)) )
+		      ((EQ 'FAILURE TRIAL-RESULT)
+		         (SETQ FAILURE-TALLY (1+ FAILURE-TALLY)) )
+		      (T (BREAK |COUNT-TASKS - unrecognized or missing TRIAL-RESULT|)) ) ) )
+       *TASK-RECORD* )
+ (WRITE "There are " (LENGTH *TASK-RECORD*) " tasks:  " SUCCESS-TALLY
+	" that succeeded, and " FAILURE-TALLY " that failed." T ) )
+
+(DEFUN CLASSIFY-TASKS (KEY &aux SUCCESS-LIST FAILURE-LIST (TALLY 0))
+ (MAPC #'(LAMBDA (TASK)
+	   (LET ((TRIAL-RESULT (A-Q-GET (R-TASK-TRIAL-REPORT TASK) 'TRIAL-RESULT)))
+		(SETQ TALLY (1+ TALLY))
+		(COND ((EQ 'SUCCESS TRIAL-RESULT)
+		         (PUSH TALLY SUCCESS-LIST) )
+		      ((EQ 'FAILURE TRIAL-RESULT)
+		         (PUSH TALLY FAILURE-LIST) )
+		      (T (BREAK |CLASSIFY-TASKS - unrecognized or missing TRIAL-RESULT|)) ) ) )
+       *TASK-RECORD* )
+ (CASEQ KEY
+   (SUCCESS (WRITE "Successful tasks: " (NREVERSE SUCCESS-LIST)))
+   (FAILURE (WRITE "Failed tasks: " (NREVERSE FAILURE-LIST)))
+   (T (WRITE "Successful tasks: " (NREVERSE SUCCESS-LIST) T
+	     "Failed tasks: " (NREVERSE FAILURE-LIST) )) ) )
+
+(DEFUN DISPLAY-TASK (TASK &aux (TASK-FIELDS *PRINTING-TASK-FIELDS*)
+				 (CURRENTPOS 1) (TABVAL 0) )
+ (WRITE T T (TAB 8.) "Reasoning-Task " CURRENT-TASK-NUMBER T T)
+ (MAPC #'(LAMBDA (TF-ATOM)
+	   (SETQ CURRENTPOS 1
+		 TABVAL (- 13. (FLATC TF-ATOM)) )
+	   (WRITE T (TAB TABVAL) TF-ATOM |:  |)
+	   (COND ((EQ '|arguments| TF-ATOM)
+		    (SETQ CURRENTPOS (+ CURRENTPOS 3. (FLATC TF-ATOM)))
+		    (DISPLAY-TASK-ARGS TASK) )
+		 (T (LET ((CONTENTS (TASK-FIELD-CONTENTS TF-ATOM TASK)))
+			 (COND (CONTENTS (PRINC CONTENTS))) )) ) )
+       TASK-FIELDS )
+ T )
+
+(DEFUN DISPLAY-TASK-ARGS (TASK)
+  TASK
+  (BREAK |DISPLAY-TASK-ARGS - fn not yet written!|) )
+
+(DEFUN TASK-FIELD-CONTENTS (TF-ATOM TASK)
+  (CASEQ TF-ATOM
+    (|effort| (R-TASK-EFFORT TASK))
+    (|priority| (R-TASK-PRIORITY TASK))
+    (|description| (R-TASK-DESCRIPTION TASK))
+    (|r-expert| (R-EXPERT-R∨H-NAME (R-TASK-R-EXPERT TASK)))
+    (|method| (R-TASK-METHOD TASK))
+    (|argument-wff| (RP-NODE-FORMULA (CAR (R-TASK-ARGUMENTS TASK))))
+    (|arguments| (R-TASK-ARGUMENTS TASK))
+    (|trial-report| (R-TASK-TRIAL-REPORT TASK))
+    (T (BREAK |RPN-TASK-CONTENTS - unrecognized task-field atom|)) ) )
+
+;;; Beginning of Help-Function processes and data for XPTR and XPRG.
+
+(DEFSTRUCT (HELP-TABLE-ENTRY (TYPE LIST))
+	  COMMAND-KEY COMMAND-NAME ARG-SUMMARY 2ND-ARG-SUMMARY HELP-TEXT-LINE1 )
+
+(DEFMACRO HELP-TEXT-LINES (HELP-TABLE-ENTRY)
+  `(NTHCDR 4. ,HELP-TABLE-ENTRY) )
+
+; uses freely the variables TABVAL1 and TABVAL2
+(DEFUN DISPLAY-HELP-TABLE-ENTRY (ENTRY &optional (TEXT-FLAG 'NO-TEXT))
+  (LET ((1ST-TABVAL (CASEQ (CAR ENTRY)
+		      ((|Q,QUIT| |??,HH,HELP|) 13.)
+		      (T TABVAL1) ))
+	(2ND-TABVAL (COND ((AND (MEMQ (CAR ENTRY) '(|Q,QUIT| |??,HH,HELP|))
+				(< TABVAL2 38.) )
+			     38. )
+			  (T TABVAL2) )) )
+       (SETQ CURRENTPOS 1)
+       (WRITE T (POSPRINC (COMMAND-KEY ENTRY))
+		(TAB 1ST-TABVAL)
+		(POSPRINC (COMMAND-NAME ENTRY))
+		(TAB 2ND-TABVAL)
+		| - |
+		(POSPRINC (ARG-SUMMARY ENTRY)) )
+       (COND ((2ND-ARG-SUMMARY ENTRY)
+		(TAB (+ 3. 2ND-TABVAL))
+		(POSPRINC (2ND-ARG-SUMMARY ENTRY)) ))
+       (COND ((AND (EQ 'TEXT TEXT-FLAG)
+		   (HELP-TEXT-LINES ENTRY) )
+	        (MAPC #'(LAMBDA (TEXT-LINE)
+			  (SETQ CURRENTPOS 1)
+			  (WRITE T (TAB TABVAL1) TEXT-LINE) )
+		      (HELP-TEXT-LINES ENTRY) ) )) ) )
+
+(DEFUN DISPLAY-TRANSFER-COMMANDS (DETAIL-KEY EXCEPTION-KEY
+					&aux (TABVAL1 6.) (TABVAL2 39.) )
+  (COND ((NULL DETAIL-KEY)
+	   (WRITE T '|Transfer-commands:  |) )
+	((EQ '* DETAIL-KEY)
+	   (WRITE T "Transfer command summaries:") )
+	((EQ '** DETAIL-KEY)
+	   (WRITE T "Transfer command information:") ) )
+  (DO ((N (LENGTH IPC-HELP-TABLE) (1- N))
+       (TABLE-TAIL IPC-HELP-TABLE (CDR TABLE-TAIL)) )
+      ((< N 5.) (TERPRI))
+      (LET ((ENTRY (CAR TABLE-TAIL)))
+	   (COND ((NOT (EQ EXCEPTION-KEY (CAR ENTRY)))
+		    (COND ((NULL DETAIL-KEY)
+			     (WRITE (CAR ENTRY) |  |) )
+			  ((EQ '* DETAIL-KEY)
+			     (DISPLAY-HELP-TABLE-ENTRY ENTRY 'NO-TEXT) )
+			  ((EQ '** DETAIL-KEY)
+			     (DISPLAY-HELP-TABLE-ENTRY ENTRY 'TEXT) ) )) ) ) ) )
+
+(DEFUN XPTR-SHORT-HELP (CMD-TAIL)
+ (COND ((NULL CMD-TAIL)
+	  (DISPLAY-XPTR-COMMANDS) )
+       ((MEMQ (CAR CMD-TAIL) '(TRAN TRANS TRANSFER))
+	  (DISPLAY-TRANSFER-COMMANDS NIL 'XTR) )
+       ((EQ '* (CAR CMD-TAIL))
+	  (DISPLAY-XPTR-COMMANDS)
+	  (DISPLAY-TRANSFER-COMMANDS NIL 'XTR) )
+       (T NIL) ) )
+
+(DEFUN DISPLAY-XPTR-COMMANDS (&aux (CURRENTPOS 1))
+ (WRITE T
+; line too wide to indent fully
+"Task-commands:  CT  LS  LF  LSF  ID  DT  T,MT  N,F  B"
+	T (TAB 17) "P,BP  DP  SP  GTR  ?,H  ??,HH,HELP  Q,QUIT" ) )
+
+(DEFUN XPTR-HELP (CMD-TAIL
+		      &aux (CURRENTPOS 1) (TABVAL1 7.) (TABVAL2 43.) TEXT-FLAG )
+  (COND ((OR (NULL CMD-TAIL) (EQ '* (CAR CMD-TAIL)))
+	   (SETQ CURRENTPOS 1)
+	   (WRITE T (TAB 1.) (POSPRINC "Command Summary - EXPLORE TASK-RECORD.")
+		  (TAB 42.) '|Syntax: <cmd> or (<cmd> {<arg>} ...)| )
+	   (SETQ TEXT-FLAG (COND (CMD-TAIL 'TEXT) (T 'NO-TEXT)))
+	   (MAPC #'(LAMBDA (ENTRY)
+		     (COND ((EQ 'DD TERMINAL-TYPE) (WRITE T T)))
+		     (DISPLAY-HELP-TABLE-ENTRY ENTRY TEXT-FLAG) )
+		 XPTR-HELP-TABLE ) )
+	((MEMQ (CAR CMD-TAIL) '(TRAN TRANS TRANSFER))
+	   (DISPLAY-TRANSFER-COMMANDS
+			(COND ((EQ '* (CADR CMD-TAIL)) '**) (T '*))
+			'XTR ) )
+	(T (SETQ CURRENTPOS 1)
+	   (COND ((EQ 'VERBOSE IPC:HELP-VERBOSITY)
+		    (WRITE T (TAB 1.) (POSPRINC
+			"Some command info - EXPLORE TASK-RECORD.")
+			   (TAB 44.) '|Syntax: <cmd> or (<cmd> {<arg>} ...)| T T ) ))
+	   (MAPC #'(LAMBDA (CMD)
+		     (LET* ((CMD-KEY (CASEQ CMD
+				       ((T MT) '|T,MT|)
+				       ((N F) '|N,F|)
+				       ((Q QUIT) '|Q,QUIT|)
+				       ((? H) '|?,H|)
+				       ((?? HH HELP) '|??,HH,HELP|)
+				       (T CMD) ))
+			    (ENTRY (ASSQ CMD-KEY XPTR-HELP-TABLE)) )
+			   (COND (ENTRY
+				  (DISPLAY-HELP-TABLE-ENTRY ENTRY 'TEXT) )) ) )
+		 CMD-TAIL )) ) )
+
+(SETQ XPTR-HELP-TABLE
+'((CT "Count Tasks" |no arguments| NIL
+      "Tells how many tasks are in the task-record, and then lists"
+      "the successful ones." )
+  (LS "List Successful tasks" |no arguments|)
+  (LF "List Failed tasks" |no arguments|)
+  (LSF "List Successful and Failed tasks" |no arguments|)
+  (ID "IDentify current task" |no arguments| NIL
+      "Displays the task-number of the current task." )
+  (DT "Display current Task" |no arguments|)
+  (|T,MT| "Move to specified Task" |argument: none, a number, or *| NIL
+   "Argument defaults to 1; argument * indicates the last task on task-record." )
+  (|N,F| "move Forward to Next task" |argument: a number| NIL
+	 "Moves forward the specified number of tasks in the task-record." )
+  (B "move Backward in the task-record" |argument: a number| NIL
+     "Moves backward the specified number of tasks in the task-record." )
+  (|P,BP| "move to nth Previous task (on path)" |optional argument: a number|
+      NIL "With argument n, moves Back n tasks on the current-task-Path."
+	  "Missing argument defaults to 1." )
+  (DP "Display current-task-Path" |no arguments|)
+  (SP "Shorten current-task-Path" |argument: none, a number, or *| NIL
+   "With arg a non-negative n, removes the n newest items from the task-path."
+   "With arg a negative n, removes the n oldest items from the task-path."
+   "With arg *, sets current-task-path to NIL.  Missing arg defaults to 1."
+   "The shortened task-path is displayed." )
+  (GTR "Get Task Record" |optional argument: a task-rec-var| NIL
+       "Gets a new task-record for examination."
+       "The argument, if omitted, defaults to the LISP-variable TASK-REC." )
+  (|?,H| "mini-Help" |arguments: none, TRANS, or *| NIL
+   |With no arguments, lists all task-commands.|
+   |With argument TRANS, lists all transfer-commands.|
+   |With argument *, lists all task- and transfer-commands.| )
+  (|??,HH,HELP| |Help: command information| |arguments: none, cmds, TRANS, or *|
+   NIL |With no arguments, prints help-summaries for all task-commands.|
+   |With command-args, prints full help-texts for the task-commands specified.|
+   |With argument *, prints full help-texts for all task-commands.|
+   |With argument TRANS, prints help-summaries for all transfer-commands.|
+   |With arguments TRANS *, prints full help-texts for all transfer-commands.| )
+  (|Q,QUIT| |Quit| |arguments: none, or *| NIL
+	    |With no arguments, returns to IPC; with argument *, exits from IPC.| ) ) )
+
+(DEFUN XPRG-SHORT-HELP (CMD-TAIL)
+ (COND ((NULL CMD-TAIL)
+	  (DISPLAY-XPRG-COMMANDS) )
+       ((MEMQ (CAR CMD-TAIL) '(TRAN TRANS TRANSFER))
+	  (DISPLAY-TRANSFER-COMMANDS NIL 'XRG) )
+       ((EQ '* (CAR CMD-TAIL))
+	  (DISPLAY-XPRG-COMMANDS)
+	  (DISPLAY-TRANSFER-COMMANDS NIL 'XRG) )
+       (T NIL) ) )
+
+(DEFUN DISPLAY-XPRG-COMMANDS (&aux (CURRENTPOS 1))
+ (WRITE T
+; lines too wide to indent fully
+"Task-commands:  CI  CNC  ID  DI  DS  DFS  DGS  I,MI  RC,MRC  GRC,MGRC"
+     T (TAB 17) "PC,MPC  GPC,MGPC  MN  MP  MC  GRG  ?,H  ??,HH,HELP  Q,QUIT" ) )
+
+(DEFUN XPRG-HELP (CMD-TAIL
+		   &aux (CURRENTPOS 1) (TABVAL1 11.) (TABVAL2 50.) TEXT-FLAG )
+  (COND ((OR (NULL CMD-TAIL) (EQ '* (CAR CMD-TAIL)))
+	   (SETQ CURRENTPOS 1)
+	   (WRITE T (TAB 1.) (POSPRINC "Command Summary - EXPLORE REASONING-GRAPH.")
+		  (TAB 45.) '|Syntax: <cmd> or (<cmd> {<arg>} ...)| T )
+	   (SETQ TEXT-FLAG (COND (CMD-TAIL 'TEXT) (T 'NO-TEXT)))
+	   (MAPC #'(LAMBDA (ENTRY)
+		     (COND ((EQ 'DD TERMINAL-TYPE) (WRITE T T)))
+		     (COND ((EQ 'GRG (CAR ENTRY)) (SETQ TABVAL2 39.)))
+		     (DISPLAY-HELP-TABLE-ENTRY ENTRY TEXT-FLAG) )
+		 XPRG-HELP-TABLE ) )
+	((MEMQ (CAR CMD-TAIL) '(TRAN TRANS TRANSFER))
+	   (DISPLAY-TRANSFER-COMMANDS
+			(COND ((EQ '* (CADR CMD-TAIL)) '**) (T '*))
+			'XRG ) )
+	(T (SETQ CURRENTPOS 1)
+	   (COND ((EQ 'VERBOSE IPC:HELP-VERBOSITY)
+		    (WRITE T (TAB 1.) (POSPRINC
+			"Some command info: EXPLORE REASONING-GRAPH.")
+			   (TAB 45.) '|Syntax: <cmd> or (<cmd> {<arg>} ...)| T T ) ))
+	   (MAPC #'(LAMBDA (CMD)
+		     (LET* ((CMD-KEY (CASEQ CMD
+				       ((I MI) '|I,MI|)
+				       ((Q QUIT) '|Q,QUIT|)
+				       ((? H) '|?,H|)
+				       ((?? HH HELP) '|??,HH,HELP|)
+				       (T CMD) ))
+			    (ENTRY (ASSQ CMD-KEY XPRG-HELP-TABLE)) )
+			   (SETQ TABVAL2
+				 (COND ((MEMQ CMD-KEY
+					      '(GRG |?,H| |??,HH,HELP| |Q,QUIT|) )
+					  39.)
+				       (T 50.) ) )
+			   (COND (ENTRY
+				  (DISPLAY-HELP-TABLE-ENTRY ENTRY 'TEXT) )) ) )
+		 CMD-TAIL )) ) )
+
+(SETQ XPRG-HELP-TABLE
+'((CI "Count Items" |no arguments| NIL
+      "Shows the numbers of target rp-nodes, previously known rp-nodes,"
+      "completed ordinary-considerations, and goal ordinary-considerations"
+      "in the current reasoning-graph." )
+  (CNC "Count Negation-Considerations" |no arguments| NIL
+       "Shows the numbers of completed negation-considerations"
+       "and goal negation-considerations in the current reasoning-graph." )
+  (ID "IDentify current item" |no arguments| NIL
+      "Prints either a display-name or a description of the current"
+      "rp-node or consideration." )
+  (DI "Display current Item" |no arguments|)
+  (DS "Display reasoning-graph Summary" |no arguments| NIL
+      "Shows the logical structure of all completed considerations, using"
+      "display-names that may be used as arguments to the I,MI command." )
+  (DFS "Display Full reasoning-graph Summary" |no arguments| NIL
+      "Shows the logical structure of both completed and goal considerations,"
+      "using display-names that may be used as arguments to the I,MI command." )
+  (DGS "Display reasoning-graph Goal-Summary" |no arguments| NIL
+      "Shows the logical structure of all goal considerations"
+      "(and any competing completed ones), using display-names"
+      "that may be used as arguments to the I,MI command." )
+  (|I,MI| "Move to specified Item" |argument: an item-name|)
+  (|RC,MRC| "Move to Relevant-Consideration" |no arguments|)
+  (|GRC,MGRC| "Move to Goal-Relevant-Consideration" |no arguments|)
+  (|PC,MPC| "Move to Participated-Consideration" |no arguments|)
+  (|GPC,MGPC| "Move to Goal-Participated-Consideration" |no arguments|)
+  (MN "Move to Negation-rp-node (of rp-node)" |no arguments|)
+  (MP "Move to Premise-rp-node" |no arguments|)
+  (MC "Move to Conclusion-rp-node" |no arguments|)
+  (GRG "Get Reasoning Graph" |optional argument: an r-graph-var| NIL
+       "Gets a new reasoning-graph for examination."
+       "The argument, if omitted, defaults to the LISP-variable RGRAPH." )
+  (|?,H| "mini-Help" |arguments: none, TRANS, or *| NIL
+   |With no arguments, lists all task-commands.|
+   |With argument TRANS, lists all transfer-commands.|
+   |With argument *, lists all task- and transfer-commands.| )
+  (|??,HH,HELP| |Help: command information| |arguments: none, cmds, TRANS, or *|
+   NIL |With no arguments, prints help-summaries for all task-commands.|
+   |With command-args, prints full help-texts for the task-cmds specified.|
+   |With argument *, prints full help-texts for all task-commands.|
+   |With argument TRANS, prints help-summaries for all transfer-commands.|
+   |With arguments TRANS *, prints full help-texts for all transfer-cmds.| )
+  (|Q,QUIT| |Quit| |arguments: none, or *| NIL
+	    |With no arguments, returns to IPC; with argument *, exits from IPC.| ) ) )
+
+;	Processes for Demonstrating the Commonsense Reasoning Program
+
+(DECLARE (special TARGET-QRY-NAME CONCLUSIVE? CONCL MEM-BLF STOP-REAS EFFORT
+		  TASK-REC RGRAPH DEMO-HELP-TABLE *DEMO-QUERY-NAMES*
+		  UNERASED-MEM-BLF-FLAG MAX-EFFORT CONCLUSIVENESS-LEVEL )
+
+ 	 (defstruct (context conc-name
+			     (default-pointer -context-))
+		    (items ())
+		    (erased ())
+		    (visibilities ())
+		    (visibility-type 'OR)
+		    (visible-from ())
+		    (descriptors ())
+		    (assumptions ())
+		    (mark ()) ) )
+
+(SETQ UNERASED-MEM-BLF-FLAG NIL)
+
+(DEFMACRO QUERY-NAMES-CHECK (CMD-ATOM)
+ `(COND ((OR (AND (BOUNDP '*DEMO-QUERY-NAMES*) *DEMO-QUERY-NAMES*)
+	     (MEMQ ,CMD-ATOM '(GQN ? H ?? HH HELP Q QUIT)) ))
+	(T (WRITE T
+		"There are no current query-names; you may use GQN to get some."
+		  T '| -- please try again ...| )
+	   (GO A) ) ) )
+
+;; The global vars *DEMO-QUERY-NAMES*, CONCLUSIVE?, CONCL, MEM-BLF, STOP-REAS,
+;;  EFFORT, TASK-REC, RGRAPH, DEMO-HELP-TABLE, and UNERASED-MEM-BLF-FLAG are
+;;  used freely by DEMO-COMMONSENSE-REASONING and several subsidiary functions.
+(DEFUN DEMO-COMMONSENSE-REASONING ()
+ (PROG (PROMPT-STRING COMMAND)
+       (SETQ *NOPOINT 'T   PROMPT-STRING 'DEM**)
+       (COND ((MEMQ 'DEMO-CSR *WELCOMED-LIST*)
+	        (WRITE T 'DEMO-COMMONSENSE-REASONING |.|) )
+	     (T (PUSH 'DEMO-CSR *WELCOMED-LIST*)
+		(WRITE T "Welcome to DEMO-COMMONSENSE-REASONING." T
+	 ;; line too wide to indent fully
+"This program permits you to demonstrate conveniently the Advice-Taker's" T
+"Commonsense Reasoning program;  please type commands to the prompt DEM**." ) ) )
+    A  (SETQ COMMAND (GET-XPDN-COMMAND))
+       (COND ((SYMBOLP COMMAND)
+		(TRANSFER-CHECK COMMAND)
+		(QUERY-NAMES-CHECK COMMAND) )
+	     ((AND (CONSP COMMAND)
+		   (SYMBOLP (CAR COMMAND))
+		   (ALL (CDR COMMAND)
+			#'(LAMBDA (ARG) (OR (FIXP ARG) (SYMBOLP ARG))) ) )
+		(TRANSFER-CHECK (CAR COMMAND))
+		(QUERY-NAMES-CHECK (CAR COMMAND)) )
+	     (T (WRITE T
+		   '| - improper command or argument -- please try again ...| )
+		(GO A) ) )
+       (OR (ERRSET
+	(CASEQ (COND ((SYMBOLP COMMAND) COMMAND) (T (CAR COMMAND)))
+	   (DK (DISPLAY-KNOWLEDGE))
+	    ;; Display available Knowledge
+	   (DAW (DISPLAY-CONTEXT '-ALLWORLDS-))
+	    ;; Display -AllWorlds- knowledge
+	   (DNT (DISPLAY-CONTEXT '-NATURE-))
+	    ;; Display knowledge in -NaTure-
+	   (DRW (DISPLAY-CONTEXT '-REALWORLD-))
+	    ;; Display -RealWorld- knowledge
+	   (DQF (DISPLAY-QUERY-FORMULAS))
+	    ;; Display Query-Formulas
+	   (DQ (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	    ;; Display specified Queries
+		         ;; missing argument defaults to 1.
+		        (DISPLAY-SPECIF-QUERIES '(1)) )
+		     (T (DISPLAY-SPECIF-QUERIES (CDR COMMAND))) ))
+	   (IQ (COND ((OR (ATOM COMMAND) (NULL (CDR COMMAND)))
+	    ;; Investigate specified Query
+		         ;; missing argument defaults to 1.
+		        (INVESTIGATE-QUERY '(1)) )
+		     (T (INVESTIGATE-QUERY (CDR COMMAND))) ))
+	   (RR (REPORT-RESULTS))
+	    ;; Report Results of reasoning
+	   (RK (RESET-KNOWLEDGE-BASE))
+	    ;; Reset Knowledge base
+	   ((Q QUIT EXIT) (SETQ *NOPOINT NIL) (RETURN COMMAND))
+	   ((? H) (DEMO-SHORT-HELP (COND ((ATOM COMMAND) NIL)
+					 (T (CDR COMMAND)) )))
+	   ((?? HH HELP) (DEMO-HELP (COND ((ATOM COMMAND) NIL)
+					  (T (CDR COMMAND)) )))
+	   (T (WRITE T '| - unrecognized command| '| -- please try again ...|)) )
+	IPC:ERRSET-FLAG )
+	   (WRITE T '| - bad command//argument combination|
+		    '| -- please try again ...| ) )
+       (GO A) ) )
+
+(DEFUN DISPLAY-CONTEXT (CNTXT-NAME &aux (CURRENTPOS 1))
+  (WRITE T (TAB 7.) "Knowledge stored in the context " CNTXT-NAME | | |:|
+	   (TAB 1.) (POSPRINC '|Bel-level|) (TAB 25.) '|Belief-formula| T )
+  (MAPC #'(LAMBDA (BLF)
+	    (SETQ CURRENTPOS 1)
+	    (WRITE T (POSPRINC (BELIEF-BEL-LEVEL BLF)) (TAB 17.)
+		     (BELIEF-FORMULA BLF) ) )
+	(CONTEXT-ITEMS (SYMEVAL CNTXT-NAME)) ) )
+
+(DEFUN DISPLAY-KNOWLEDGE ()
+  (DISPLAY-CONTEXT '-ALLWORLDS-)
+  (DISPLAY-CONTEXT '-NATURE-)
+  (DISPLAY-CONTEXT '-REALWORLD-) )
+
+(DEFUN DISPLAY-QUERY-FORMULAS (&aux (CURRENTPOS 1))
+  (WRITE T (TAB 6.) "Queries available as target propositions for reasoning:"
+	 (TAB 1) (POSPRINC "Query-name") (TAB 18.) "Query-formula" )
+  (MAPC #'(LAMBDA (QRY-NAME)
+	    (LET ((LC-NAME (LOWER-CASE QRY-NAME)))
+		 (SETQ CURRENTPOS 1)
+		 (WRITE T (TAB 2.) (POSPRINC LC-NAME)
+			  (TAB 14.) (QUERY-FORMULA (SYMEVAL QRY-NAME)) ) ) )
+	*DEMO-QUERY-NAMES* ) )
+
+(DEFUN DISPLAY-SPECIF-QUERIES (CMD-TAIL)
+ (MAPC #'(LAMBDA (QRY-KEY)
+	   (LET ((QRY (COND ((FIXP QRY-KEY)
+			     (SYMEVAL (NTH (1- QRY-KEY) *DEMO-QUERY-NAMES*)) )
+			    (T (SYMEVAL QRY-KEY)) )))
+		(DISPLAY-BLF∨QRY QRY) ) )
+       CMD-TAIL ) )
+
+(DEFUN INVESTIGATE-QUERY (CMD-TAIL &aux (QRY-KEY (CAR CMD-TAIL)))
+ (SETQ TARGET-QRY-NAME (COND ((FIXP QRY-KEY)
+				(NTH (1- QRY-KEY) *DEMO-QUERY-NAMES*) )
+			     (T QRY-KEY) ))
+ (LET ((QRY (SYMEVAL TARGET-QRY-NAME)))
+      (SETQ MAX-EFFORT (COND ((CADR CMD-TAIL))
+			     (T 200.) )
+	    CONCLUSIVENESS-LEVEL (COND ((CADDR CMD-TAIL))
+				       (T 'VERY-LIKELY) ) )
+      (COND (UNERASED-MEM-BLF-FLAG (CONTEXT:DELETE MEM-BLF)))
+      (MULTIPLE-VALUE
+		  (CONCLUSIVE? CONCL MEM-BLF STOP-REAS EFFORT TASK-REC RGRAPH)
+	(CSR:INVESTIGATE-FROM-MEMORY
+	  QRY
+	  `((MAX-EFFORT . ,MAX-EFFORT)
+	    (CONCLUSIVENESS-LEVEL . ,CONCLUSIVENESS-LEVEL) ) ) )
+      (WRITE T "Reasoning finished.")
+      (SETQ UNERASED-MEM-BLF-FLAG 'UNERASED-MEM-BLF) ) )
+
+(DEFUN REPORT-RESULTS ()
+ (WRITE T "The target-query named " TARGET-QRY-NAME " was investigated from memory."
+	T "Target-formula: " (QUERY-FORMULA (SYMEVAL TARGET-QRY-NAME)) |.|
+	T "The reasoning was " (LOWER-CASE CONCLUSIVE?)
+	" to establish a conclusion of the specified"  T
+	"level of definitiveness:  " (HOW-DEFINITIVE? CONCLUSIVENESS-LEVEL) |.| 
+	T "Reasoning was terminated because of " (LOWER-CASE STOP-REAS) |.|
+	T "The total effort expended (in arbitrary units) was " EFFORT |.|
+; line too wide to indent
+T "As a result of this reasoning, the following belief was stored in memory:" )
+ (DISPLAY-BLF∨QRY MEM-BLF T)
+ (WRITE T T T
+; lines too wide to indent
+"For more details, examine the two main data-structures produced by the" T
+"reasoning process:  the task-record (use XTR) and the reasoning-graph (use XRG)." ) )
+
+(DEFUN RESET-KNOWLEDGE-BASE ()
+  (COND (UNERASED-MEM-BLF-FLAG (CONTEXT:DELETE MEM-BLF)
+			       (SETQ UNERASED-MEM-BLF-FLAG NIL) )) )
+
+(DEFUN DEMO-SHORT-HELP (CMD-TAIL)
+ (COND ((NULL CMD-TAIL)
+	  (DISPLAY-DEMO-COMMANDS) )
+       ((MEMQ (CAR CMD-TAIL) '(TRAN TRANS TRANSFER))
+	  (DISPLAY-TRANSFER-COMMANDS NIL 'DEM) )
+       ((EQ '* (CAR CMD-TAIL))
+	  (DISPLAY-DEMO-COMMANDS)
+	  (DISPLAY-TRANSFER-COMMANDS NIL 'DEM) )
+       (T NIL) ) )
+
+(DEFUN DISPLAY-DEMO-COMMANDS ()
+ (WRITE T
+; line too wide to indent fully
+"Task-commands:  DK  DAW  DNT  DRW  DQF  DQ  IQ  RR  RK  ?,H  ??,HH,HELP  Q,QUIT" ) )
+
+(DEFUN DEMO-HELP (CMD-TAIL
+		      &aux (CURRENTPOS 1) (TABVAL1 6.) (TABVAL2 36.) TEXT-FLAG )
+  (COND ((OR (NULL CMD-TAIL) (EQ '* (CAR CMD-TAIL)))
+	   (SETQ CURRENTPOS 1)
+	   (WRITE T (TAB 10.)
+		  (POSPRINC "Command Summary - DEMONSTRATE COMMONSENSE REASONING.")
+		  (TAB 17.) '|Syntax: <cmd> or (<cmd> {<arg>} ...)| )
+	   (SETQ TEXT-FLAG (COND (CMD-TAIL 'TEXT) (T 'NO-TEXT)))
+	   (MAPC #'(LAMBDA (ENTRY)
+		     (COND ((EQ 'DD TERMINAL-TYPE) (WRITE T T)))
+		     (DISPLAY-HELP-TABLE-ENTRY ENTRY TEXT-FLAG) )
+		 DEMO-HELP-TABLE ) )
+	((MEMQ (CAR CMD-TAIL) '(TRAN TRANS TRANSFER))
+	   (DISPLAY-TRANSFER-COMMANDS
+			(COND ((EQ '* (CADR CMD-TAIL)) '**) (T '*))
+			'DEM ) )
+	(T (SETQ CURRENTPOS 1)
+	   (COND ((EQ 'VERBOSE IPC:HELP-VERBOSITY)
+		    (WRITE T (TAB 9.) (POSPRINC 
+		       "Some command info - DEMONSTRATE COMMONSENSE REASONING.")
+			   (TAB 16.) '|Syntax: <cmd> or (<cmd> {<arg>} ...)| T T ) ))
+	   (MAPC #'(LAMBDA (CMD)
+		     (LET* ((CMD-KEY (CASEQ CMD
+				       ((Q QUIT) '|Q,QUIT|)
+				       ((? H) '|?,H|)
+				       ((?? HH HELP) '|??,HH,HELP|)
+				       (T CMD) ))
+			    (ENTRY (ASSQ CMD-KEY DEMO-HELP-TABLE)) )
+			   (COND (ENTRY
+				  (DISPLAY-HELP-TABLE-ENTRY ENTRY 'TEXT) )) ) )
+		 CMD-TAIL )) ) )
+
+(SETQ DEMO-HELP-TABLE
+'((DK "Display available Knowledge" |no arguments| NIL
+      "Displays the contents and belief-levels of the contexts -ALLWORLDS-,"
+      "-NATURE-, and -REALWORLD-." )
+  (DAW "Display -AllWorlds- knowledge" |no arguments| NIL
+       "Displays the contents and belief-levels of the context -ALLWORLDS-." )
+  (DNT "Display knowledge in -NaTure-" |no arguments| NIL
+       "Displays the contents and belief-levels of the context -NATURE-." )
+  (DRW "Display -RealWorld- knowledge" |no arguments| NIL
+       "Displays the contents and belief-levels of the context -REALWORLD-." )
+  (DQF "Display Query-Formulas" |no arguments| NIL
+       "Displays the formulas of the available queries." )
+  (DQ "Display specified Queries" "arguments: none, or query-keys"
+      "query-key: query-name or query-number"
+      "Displays the queries specified; arguments default to singleton 1." )
+  (IQ "Investigate specified Query" "argument-list:"
+       "{({query-key} {max-effort} {concl-level})}"
+       "query-key: a query-name or query-number; defaults to 1 if null or absent."
+       "max-effort: a number; defaults to 200 if null or absent."
+       "concl-level: a bel-level; defaults to VERY-LIKELY if null or absent." )
+  (RR "Report Results of reasoning" |no arguments| NIL
+      "Gives a short, selective summary of the reasoning results." )
+  (RK "Reset Knowledge base" |no arguments| NIL
+      "Deletes the last-stored conclusion from memory." )
+  (|?,H| "mini-Help" |arguments: none, TRANS, or *| NIL
+   |With no arguments, lists all task-commands.|
+   |With argument TRANS, lists all transfer-commands.|
+   |With argument *, lists all task- and transfer-commands.| )
+  (|??,HH,HELP| |Help: command information| |arguments: none, cmds, TRANS, or *|
+   NIL |With no arguments, prints help-summaries for all task-commands.|
+   |With command-args, prints full help-texts for the task-commands specified.|
+   |With argument *, prints full help-texts for all task-commands.|
+   |With argument TRANS, prints help-summaries for all transfer-commands.|
+   |With arguments TRANS *, prints full help-texts for all transfer-commands.| )
+  (|Q,QUIT| |Quit| |arguments: none, or *| NIL
+	    |With no arguments, returns to IPC; with argument *, exits from IPC.| ) ) )
+
+(DEFMACRO CAPITAL-ASCII? (ASCII)
+  `(AND (> ,ASCII 64.) (< ,ASCII 91.)) )
+
+(DEFUN LOWER-CASE (ATOM)
+ (LET* ((UC-ASCIIS (EXPLODEN ATOM))
+	(LC-ASCIIS (MAPCAR #'(LAMBDA (ASCII)
+			       (COND ((CAPITAL-ASCII? ASCII) (+ ASCII 32.))
+				     (T ASCII) ) )
+			   UC-ASCIIS )) )
+       (IMPLODE LC-ASCIIS) ) )
+

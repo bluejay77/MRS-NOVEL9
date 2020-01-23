@@ -1,0 +1,19 @@
+
+perm filename CORLL.MAC[MRS,LSP] blob sn#615045 filedate 1981-09-30 generic text, type T, neo UTF8
+
+;;;               -*-Mode:LISP; Package:MACSYMA -*-                      ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;            Please do not modify this file.  See MRG.                 ;;;
+;;;            (c) Copyright 1980  Michael R. Genesereth                 ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare (load '|<csd.genesereth>macros.fasl|) (macros t))
+
+(defmode node () (atom <data>))
+(defmode link () (struct <pat>))
+
+(defmacro ua-pattern (d) `:,d:pat)
+(defmacro ua-put (n lk) `(← :,n:data (cons ,lk :,n:data)))
+(defmacro ua-rem (n lk) `(← :,n:data (delq ,lk :,n:data)))
+(defmacro ua-getfacts (n) `:,n:data)
+
