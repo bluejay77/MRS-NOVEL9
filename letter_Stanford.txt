@@ -1,0 +1,7 @@
+Reports on the MRS system:
+
+There are 2 tech reports -- STAN-CS-85-1080 is titled "The
+Complete Guide to MRS" (Jun 1985).  But that may be much the same
+material as KSL-85408 by (the) Winston, Mitchell and Buchanan
+(1985).  Both should still be available from Stanford.
+

@@ -1,0 +1,8 @@
+
+perm filename MRSSET.MRS[MRS,LSP] blob sn#613755 filedate 1981-09-30 generic text, type T, neo UTF8
+
+
+(if (subclass $s $t) (all x (if (mem x $s) (mem x $t))))
+(if (disjoint $s $t) (all x (if (mem x $s) (not (mem x $t)))))
+(if (func $r $s $y) (all x (if (mem x $s) ($r x $y))))
+

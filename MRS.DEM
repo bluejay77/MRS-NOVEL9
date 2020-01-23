@@ -1,0 +1,88 @@
+;;; MRS.DEM the MRS demo file
+;;;
+;;;
+;;;
+;;;
+;;;perm filename MRS.DEM[MRS,LSP] blob sn#620898 filedate 1981-10-23
+;;;generic text, type T, neo UTF8 
+
+($assert '(color clyde grey))
+($truep '(color clyde grey))
+($getval '(color clyde))
+
+($truep '(color $x grey))
+($assert '(all x (p x)))
+($truep '(p $z))
+
+($unassert '(color clyde grey))
+($truep '(color clyde grey))
+
+($assert '(mem clyde elephants))
+($assert '(all x (if (mem x elephants) (color x grey))))
+($getval '(color clyde))
+
+($assert '(all x (if (and (mem x plants) (color x purple)) (poisonous x))))
+($assert '(all x (if (mem x mushrooms) (mem x plants))))
+($assert '(mem phil mushrooms))
+($assert '(color phil purple))
+($truep '(poisonous phil))
+
+(setq currenttheory 'earth)
+($assert '(color sky blue))
+(setq currenttheory 'mars)
+($assert '(color sky red))
+($getval '(color sky))
+(setq currenttheory 'earth)
+($getval '(color sky))
+(setq currenttheory 'global)
+
+(setq p ($assert '(color clyde grey)))
+(setq q ($assert '(mem clyde elephants)))
+($assert (list 'depends p q))
+
+($facts not)
+($truep '(not (striped zeke)))
+($unassert '(mytotruep (not $x) truep-not))
+($truep '(not (striped zeke)))
+($assert '(not (striped zeke)))
+($truep '(not (striped zeke)))
+
+($assert '(mother bertram allison))
+($assert '(spouse allison arthur))
+($getval '(father bertram))
+($assert '(mytotruep (father $x $y) truep-father))
+(defun truep-father (p)
+  ($truep (list 'and (list 'mother (cadr p) '$z)
+		(list 'spouse '$z (caddr p)))))
+($truep '(father bertram arthur))
+($getval '(father bertram))
+
+($facts mytoassert)
+($assert '(mytostash (neighbor $x $y) dl-stash))
+($assert '(mytolookupvals (neighbor $x) dl-lookupvals))
+($assert '(neighbor stanford paloalto))
+($assert '(neighbor stanford menlopark))
+(get 'stanford 'neighbor)
+($lookupvals '(neighbor stanford))
+
+($defassert inherit ((func color $s $c) (mem $x $s))
+   ($assert (list 'color $x $c)))
+(setq demontrace t)
+($assert '(func color lions tawny))
+($assert '(mem leo lions))
+($facts leo)
+($assert '(mem louie lions))
+
+($assert `(all qq (exist rr (loves qq rr))))
+|(LOVES $QQ ?RR)| 
+($assert `(exist rr (all qq (loves qq rr))))
+|(LOVES $QQ ?RR)| 
+(plist '$qq)
+(DATA (|(LOVES $QQ ?RR)|) UN T) 
+(plist '?rr)
+(DATA (|(LOVES $QQ ?RR)|) EX T UNS ($QQ)) 
+(plist 'rr)
+NIL 
+(plist 'qq)
+NIL 
+

@@ -1,0 +1,30 @@
+
+perm filename NSUB[MRS,LSP] blob sn#640437 filedate 1982-01-28 generic text, type T, neo UTF8
+
+(DEFSTRUCT (↑↓-TERM (TYPE TREE))
+	   ↑↓-MARKER ↑↓-MATRIX )
+
+(DEFSTRUCT (LT-QUANTIFIER (TYPE HUNK) (CONC-NAME LT-))
+	   DEPENDENCIES DETERMINER QSORTEXPR SCOPE )
+
+(DEFSTRUCT (ROLELINK (TYPE TREE))
+	   ROLEMARK ARGUMENT )
+
+(DEFSTRUCT (PFC-FORMULA (TYPE TREE))
+	   PFC-CONCEPT ROLELINKS )
+; PFC-FORMULA => (pred rlnk1 rlnk2 ... rlnkn) or (func rlnk1 rlnk2 ... rlnkn)
+;		   or (connective rlnk1 rlnk2 ... rlnkn)
+
+(DEFSTRUCT (ROLEXENTRY (TYPE TREE))
+	   ROLENAME ROLEPHRASE )
+
+(DEFSTRUCT (LT-λ-EXPR (TYPE TREE) (CONC-NAME LT-))
+	   (λ-PREFIX (MAKE-LT-λ-PREFIX)) λ-SCOPE )
+
+(DEFSTRUCT (LT-λ-PREFIX (TYPE TREE) (BUT-FIRST LT-λ-PREFIX) (CONC-NAME LT-))
+	   (λ-MARK 'λ) PATHKEYLISTS )
+; PATHKEYLISTS => ((<termsort> <pathkey> {<pathkey>} ... ) ... )
+
+(DEFSTRUCT (PATHKEYLIST (TYPE TREE))
+	   λ-TERMSORT PATHKEYS )
+
