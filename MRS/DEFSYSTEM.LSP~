@@ -1,0 +1,13 @@
+;;; -*- Mode: Common-LISP -*-
+;;;
+;;; A simple DEFSYSTEM facility for the Common LISP MRS.
+;;;
+;;; AJY 2014-07-29.
+
+(defun defsystem (sysname
+		  &rest filelist)
+  (loop for filename in filelist
+       do
+       (setf (get sysname :defsystem)
+	     (append (get sysname :defsystem)
+		     filename))))

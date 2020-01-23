@@ -1,0 +1,87 @@
+
+perm filename INFO.MRS[MRS,LSP] blob sn#702174 filedate 1983-03-18 generic text, type T, neo UTF8
+
+Information on Content of MRS files - compiled by Mike Lowry 3/18/83
+-----------------------------------
+
+ARITHM.LSP    0.4 18-Mar-83 0124 000   1 ML E      18-Mar-83   
+	Arithmetic functions, such as truep for arithmetic.
+ASK.LSP    0.2 18-Mar-83 0108 000   1 ML E      18-Mar-83   
+	Provides hooks to query user on truth of a proposition
+BC.LSP    0.4 18-Mar-83 0108 000   1 ML E      18-Mar-83   
+	Functions such as &trueps, bc-&truep.
+BCKB.LSP    0.4 18-Mar-83 0109 000   1 ML E      18-Mar-83   
+	Functions such as bc-truep, thnot, etc.
+BCSB.LSP    0.5 18-Mar-83 0110 000   1 ML E      18-Mar-83   
+	BC stuff, such as addbc (agenda for backward chaining)
+CNF.LSP    0.5 18-Mar-83 0125 000   1 ML E      18-Mar-83   
+	CNF and DNF (conjuncitve normal form?)
+COMMON.LSP    0.3 18-Mar-83 0126 000   1 ML E      18-Mar-83   
+	Property lists - also plists for arrays, etc.
+CONCEP.LSP    0.8 18-Mar-83 0052 000   1 ML PUPFTP 18-Mar-83   
+	GenProbList and Remedial - put text on property lists of these
+	two atoms for TUTOR
+DEMO.LSP    0.1 18-Mar-83 0129 000   1 ML E      18-Mar-83   
+	DEMO will run the file demo.mrs (** need to retrieve**)
+DEMONS.LSP    0.4 18-Mar-83 0129 000   1 ML E      18-Mar-83   
+	DEMON related functions (forward chaining?)
+DESCRI.LSP    0.1 18-Mar-83 0053 000   1 ML PUPFTP 18-Mar-83   
+	Builds a directory of places in files where (DESCRIBE ** **)
+	occurs, sets up some sort of data base.
+DICT1.LSP    0.3 18-Mar-83 0053 000   1 ML PUPFTP 18-Mar-83   
+	Just an exercise with relations between people - only interest
+	is that the arity is declared.
+EXERCI.LSP    2.4 18-Mar-83 0053 000   1 ML PUPFTP 18-Mar-83   
+	Problem information for TUTOR.LSP
+
+FC.LSP    0.2 18-Mar-83 0133 000   1 ML E      18-Mar-83   
+	&ASSERT - presumably hooks for forward chaining
+FCKB.LSP    0.2 18-Mar-83 0133 000   1 ML E      18-Mar-83   
+	FL-ASSERTS presumably forward chaining
+FCSB.LSP    0.2 18-Mar-83 0133 000   1 ML E      18-Mar-83   
+	FORCHAIN - and code to add task to agenda when chaining
+GENERA.LSP    1.7 18-Mar-83 0134 000   1 ML E      18-Mar-83   
+	EXample Generator for MRS TUTOR
+INTERF.LSP    1.3 18-Mar-83 0134 000   1 ML E      18-Mar-83   
+	User Interface - functions such as $truep
+KB.LSP    0.5 18-Mar-83 0135 000   1 ML E      18-Mar-83   
+	Defines assert, etc in terms of KB and QB *** this might be new
+             and not yet integrated****
+MACROS.LSP    1.2 18-Mar-83 0121 000   1 ML E      18-Mar-83   
+	Defines macros used by other files for compiling
+MATCH.LSP    0.9 18-Mar-83 0137 000   1 ML E      18-Mar-83   
+	Matcher, Unifier, PlugP
+META.LSP    0.8 18-Mar-83 0138 000   1 ML E      18-Mar-83   
+	Meta Level - such as perception
+MRSFIX.LSP    0.3 18-Mar-83 0056 000   1 ML PUPFTP 18-Mar-83   
+	FIXES **** are these for new things or old things ****
+NEXT.LSP    0.3 18-Mar-83 0140 000   1 ML E      18-Mar-83   
+	Scheduler used in Meta-level.
+OUTPUT.LSP    1.5 18-Mar-83 0140 000   1 ML E      18-Mar-83   
+	First page is same as ASK.LSP, the rest is the NAt LAng Interface
+PLIST.LSP    0.2 18-Mar-83 0142 000   1 ML E      18-Mar-83   
+	tl-,dl-,pl- lookup,stash, and unstash
+PROPRE.LSP    0.9 18-Mar-83 0142 000   1 ML E      18-Mar-83   
+	Activate, Include, and pr- functions
+RESOLU.LSP    0.4 18-Mar-83 0143 000   1 ML E      18-Mar-83   
+	Resolution functions
+SETS.LSP    0.1 18-Mar-83 0057 000   1 ML PUPFTP 18-Mar-83   
+	truep-setof (only function in file)
+SITE.LSP    0.1 18-Mar-83 0058 000   1 ML PUPFTP 18-Mar-83   
+	sets up default file path in franzlisp
+SYNTAX.LSP    0.7 18-Mar-83 0058 000   1 ML PUPFTP 18-Mar-83   
+	MRS TUTOR - checks syntax of stud input, such as arity
+TEST.LSP    0.2 18-Mar-83 0058 000   1 ML PUPFTP 18-Mar-83   
+	TEST a new MRS - **** retrieve test files from score *****
+
+TIMER.LSP    0.2 18-Mar-83 0156 000   1 ML E      18-Mar-83   
+	timing funciton
+TM.LSP    0.2 18-Mar-83 0156 000   1 ML E      18-Mar-83   
+	tm-unassert (only function)
+TOP.LSP    0.3 18-Mar-83 0058 000   1 ML PUPFTP 18-Mar-83   
+	franz-lsip specific
+TOPICS.LSP    2.4 18-Mar-83 0059 000   1 ML PUPFTP 18-Mar-83   
+	topics for MRS tutor
+TUTOR.LSP    1.7 18-Mar-83 0059 000   1 ML PUPFTP 18-Mar-83   
+	code for MRS tutor
+

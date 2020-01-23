@@ -1,0 +1,208 @@
+
+perm filename LOSS.1[MRS,LSP] blob sn#643413 filedate 1982-02-24 generic text, type C, neo UTF8
+
+COMMENT ⊗   VALID 00003 PAGES
+C REC  PAGE   DESCRIPTION
+C00001 00001
+C00002 00002
+C00010 00003	(fasload struct fas dsk (mac lsp))
+C00014 ENDMK
+C⊗;
+
+(DEFUN ANALYZE-CMPD-CONCEPT (LT-FORM &optional AL-VARS)
+       (CASEQ (LT-CONCEPT-TYPE LT-FORM)
+	      ((ATOMICPROPO F-TERM)
+	       (SETF (ROLELINKS (CONCEPT-BODY LT-FORM))
+		     (ORDER-ROLELINKS (CONCEPT-BODY LT-FORM)) )
+	       (COND (
+		      (FUNCALL (ISA-OF:LT . λ-EXPR) LT-FORM)
+		      (LET ((DO-LIST))
+			   (COND ((SETQ DO-LIST (MERGED-PKLS (LT-PATHKEYLISTS LT-FORM)))
+				  (ANALYZE-ROLEMERGE DO-LIST LT-FORM) )
+				 ((SETQ DO-LIST (INST-KEYS LT-FORM))
+				  (ANALYZE-INSTANTIATION DO-LIST LT-FORM) )
+				 ((ANALYZE-ADVERBIALIZATION LT-FORM)) ) ) )
+		     ((ANALYZE-INSTANTIATION (INST-KEYS LT-FORM) LT-FORM)) ) )
+	      (QUANTIFIERFORM
+
+	       (LET* ((QUANTBODY (CONCEPT-BODY LT-FORM))
+		      (OLDPATHKEYLISTS (COND (
+					      (FUNCALL (ISA-OF:LT . λ-EXPR) LT-FORM)
+					      (LT-PATHKEYLISTS LT-FORM))) )
+
+		      (QSORT-NEWPATHKEYLIST
+		       (CONS 
+(TERMSORT QUANTBODY)
+			     (ORDER-PATHKEYS
+			      (MAPCAR #'IMPLODE
+				      (QUANT-QUASI-UNSUBST
+				       QUANTBODY
+				       
+				       (FUNCALL (THE-OF:LT-QUANT . QSORTEXPR) QUANTBODY)
+				       ) ) ) ) )
+
+		      (SCOPE-NEWPATHKEYLIST
+		       (CONS (TERMSORT QUANTBODY)
+			     (ORDER-PATHKEYS
+			      (MAPCAR #'IMPLODE
+				      (QUANT-QUASI-UNSUBST
+				       QUANTBODY
+				       (FUNCALL (THE-OF:LT-QUANT . SCOPE) QUANTBODY)
+				       ) ) ) ) )
+		      (QSORTλ-EXPR (SETUP-λ-EXPR QSORT-NEWPATHKEYLIST
+						 OLDPATHKEYLISTS  'A
+						 
+						 (FUNCALL (THE-OF:LT-QUANT . QSORTEXPR) QUANTBODY)
+						 ))
+		      (SCOPEλ-EXPR (SETUP-λ-EXPR SCOPE-NEWPATHKEYLIST
+						 OLDPATHKEYLISTS  'B
+						 
+						 (FUNCALL (THE-OF:LT-QUANT . SCOPE) QUANTBODY)
+						 ))
+		      (Q-OPERATOR (GET-Q-OP QSORT-NEWPATHKEYLIST QSORTλ-EXPR
+					    SCOPE-NEWPATHKEYLIST SCOPEλ-EXPR )) )
+		     (LIST Q-OPERATOR
+			   (FUNCALL (THE-OF:LT-QUANT . DETERMINER) QUANTBODY)
+			   (NRML-ANL-YZE-CC QSORTλ-EXPR AL-VARS)
+			   (NRML-ANL-YZE-CC SCOPEλ-EXPR AL-VARS) ) )
+
+ )
+	      (↑-TERM
+	       (LET* ((λ-EXPR-FLAG 
+		       (FUNCALL (ISA-OF:LT . λ-EXPR) LT-FORM)
+		       )
+		      (↑-MATRIX-EXPR
+		       (COND
+			(λ-EXPR-FLAG
+			 (LET ((λ-SCOPE (↑↓-MATRIX (LT-λ-SCOPE LT-FORM))))
+			      (COND ((AND (EQ 'ATOMICPROPO (LT-TYPE λ-SCOPE))
+					  (ATOM-CONVERTIBLE (LT-PATHKEYLISTS LT-FORM)
+							    λ-SCOPE ) )
+				     (PFC-CONCEPT λ-SCOPE) )
+				    (T (MAKE-LT-λ-EXPR
+					λ-PREFIX (MAKE-LT-λ-PREFIX
+						  PATHKEYLISTS 
+						  (COPYALLCONS
+						   (LT-PATHKEYLISTS LT-FORM) ) )
+					λ-SCOPE λ-SCOPE )) ) ) )
+			(T (↑↓-MATRIX LT-FORM)) ) ) )
+		     (COND (λ-EXPR-FLAG (LOWER-λ-TERMSORTS
+					 (LT-PATHKEYLISTS ↑-MATRIX-EXPR) )))
+		     (COND ((MEMQ '↑-MATRIX-ANALYSIS-LIST AL-VARS)
+			    (PROCESS-↑-MATRIX ↑-MATRIX-EXPR λ-EXPR-FLAG) )
+			   (T (1ST-PROCESS-↑-MATRIX ↑-MATRIX-EXPR λ-EXPR-FLAG)) ) ) )
+	      (NEGPROPO
+	       (LET* ((JUNCT-MATRIX (ARGUMENT (CAR (ROLELINKS (CONCEPT-BODY LT-FORM)))))
+		      (JUNCT-EXPR
+		       (COND (
+			      (FUNCALL (ISA-OF:LT . λ-EXPR) LT-FORM)
+			      (LET ((NEWPATHKEYLISTS
+				     (SELECT&SHORTEN 'A (LT-PATHKEYLISTS LT-FORM))))
+				   (COND ((AND (EQ 'ATOMICPROPO (LT-TYPE JUNCT-MATRIX))
+					       (ATOM-CONVERTIBLE NEWPATHKEYLISTS
+								 JUNCT-MATRIX ) )
+					  (PFC-CONCEPT JUNCT-MATRIX) )
+					 (T (MAKE-LT-λ-EXPR
+					     λ-PREFIX (MAKE-LT-λ-PREFIX
+						       PATHKEYLISTS NEWPATHKEYLISTS )
+					     λ-SCOPE JUNCT-MATRIX )) ) ) )
+			     (T JUNCT-MATRIX) ) ) )
+		     (LIST 'CNCT*A '¬ (NRML-ANL-YZE-CC JUNCT-EXPR AL-VARS)) ) )
+	      ((CONJ-PROPO DISJ-PROPO)
+	       (PUSH 'JUNCT-ANALYSIS-LIST AL-VARS)
+	       (DO ((ARGTAIL (ROLELINKS (CONCEPT-BODY LT-FORM)) (CDR ARGTAIL))
+		    (ALPHATAIL ALPHABET (CDR ALPHATAIL))
+		    (JUNCT-MATRIX) (JUNCT-EXPR) (JUNCT-PATHKEYLISTS)
+		    (NORML-JUNCT-LIST) (JUNCT-ANALYSIS-LIST) )
+		   ((NULL ARGTAIL)
+		    (FIX-AL JUNCT-ANALYSIS-LIST)
+		    (SETQ NORML-JUNCT-LIST (ORDER-JUNCTS (CULL-EQS NORML-JUNCT-LIST)
+							 JUNCT-ANALYSIS-LIST ) )
+		    (LIST* (IMPLODE (NCONC (EXPLODE 'CNCT*)
+					   (NCONS (PREVIOUS-LETTER (CAR ALPHATAIL))) ))
+			   (PFC-CONCEPT (CONCEPT-BODY LT-FORM))
+			   NORML-JUNCT-LIST ) )
+		   (SETQ JUNCT-MATRIX (ARGUMENT (CAR ARGTAIL))
+			 JUNCT-EXPR
+			 (COND (
+				(FUNCALL (ISA-OF:LT . λ-EXPR) LT-FORM)
+				(SETQ JUNCT-PATHKEYLISTS
+				      (SELECT&SHORTEN (CAR ALPHATAIL)
+						      (LT-PATHKEYLISTS LT-FORM) ) )
+				(COND ((AND (EQ 'ATOMICPROPO (LT-TYPE JUNCT-MATRIX))
+					    (ATOM-CONVERTIBLE JUNCT-PATHKEYLISTS
+							      JUNCT-MATRIX ) )
+				       (PFC-CONCEPT JUNCT-MATRIX) )
+				      (T (MAKE-LT-λ-EXPR
+					  λ-PREFIX (MAKE-LT-λ-PREFIX
+						    PATHKEYLISTS JUNCT-PATHKEYLISTS )
+					  λ-SCOPE JUNCT-MATRIX )) ) )
+			       (T JUNCT-MATRIX) ) )
+		   (ENDADD (NRML-ANL-YZE-CC JUNCT-EXPR AL-VARS) NORML-JUNCT-LIST) ) )
+	      (T (BREAK "ANALYZE-CMPD-CONCEPT - unrecognized form type")) ) )
+(fasload struct fas dsk (mac lsp))
+(fasload mlmac fas dsk (mac lsp))
+(load "atc.lsp")
+(DO ((TALLY 1 (1+ TALLY))
+     (LINFORMULA (READ) (READ)) )
+    ((NULL LINFORMULA) "DONE")
+    (NRML-ANL-YZE (ENCODE-LINFORMULA LINFORMULA))
+    (WRITE "Finished with formula " TALLY T) )
+
+; John picks up hammer1 from his desk in order to move it.
+((some ↑x (concept ↑x (of hammer1)))		;; input formula
+ (pickup john hammer1
+	 (from (!desk john))
+	 (inorderthat (↑(move i (↓ ↑x)))) ) )
+
+; John picks up hammer1 carefully, so as not to move anything else on his desk.
+((some ↑x (concept ↑x (of (!desk john)))		;; input formula
+       ↑y (concept ↑y (of hammer1)) )
+ (pickup john hammer1
+	 (from (!desk john))
+	 (withcarethat (↑((all z (and (physob z) 
+				      (on z (↓ ↑x))
+				      (not (= z (↓ ↑y))) ))
+			  (not (move i z)) ))) ) )
+
+; Being careful not to move anything else on his desk,
+;  John picks up hammer1 with his right hand in order to drive a nail with it.
+((some ↑x (concept ↑x (of (!desk john)))		;; input formula
+       ↑y (concept ↑y (of hammer1))
+       z (nail z)
+       ↑w (concept ↑w (of z)) )
+ (pickup john hammer1
+	 (with (!right-hand john))
+	 (from (!desk john))
+	 (inorderthat (↑(drive i (↓ ↑w) (with (↓ ↑y)))))
+	 (withcarethat (↑((all v (and (physob v) 
+				      (on v (↓ ↑x))
+				      (not (= v (↓ ↑y))) ))
+			  (not (move i v)) ))) ) )
+
+; Mike wants to meet Jim's wife.		[default interpretation]
+(want mike (↑(meet i (!wife jim))))	;; input formula pa1
+
+; Mike wants to meet Jim's wife.		[second interpretation]
+((some ↑s (concept ↑s (of (!wife jim))))
+ (want mike (↑(meet i (↓ ↑s)))) )		;; input formula pa2
+
+; Pat believes that Mike wants to meet Jim's wife.	[default interpretation]
+(believe pat (↑(want mike (↑(meet i (!wife jim))))))	;; input formula pa3
+
+; Pat believes that Mike wants to meet Jim's wife.	[second interpretation]
+(believe pat (↑((some ↑s (concept ↑s (of (!wife jim))))
+		 (want mike (↑(meet i (↓ ↑s)))) )))	;; input formula pa4
+
+; Pat believes that Mike wants to meet Jim's wife.	[third interpretation]
+((some ↑s (concept ↑s (of (!wife jim)))
+      ↑2s (concept ↑2s (of ↑s)) )
+ (believe pat (↑(want mike (↑(meet i (↓ ↑2s)))))) )	;; input formula pa5
+
+; Pat believes that there is someone whom Mike has never met.
+(believe pat (↑((some s person)
+		(not ((some t past-time)
+		      (meet mike s (att t)) )) )))	;; input formula pa6
+
+()
+
